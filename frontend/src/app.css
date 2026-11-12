@@ -1,2 +1,6 @@
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+.nf-node { padding: 10px 14px; min-width: 160px; background: #fff; border: 2px solid; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.nf-node.selected { box-shadow: 0 0 0 3px rgba(14,165,233,.3); }
+.nf-node-cat { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.nf-node-label { font-size: 14px; font-weight: 600; margin-top: 2px; }
