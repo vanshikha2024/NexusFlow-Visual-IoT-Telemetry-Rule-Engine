@@ -1,4 +1,5 @@
 import { ReactFlow, Background, useNodesState, useEdgesState } from '@xyflow/react';
+import Sidebar from './components/Sidebar';
 import CustomNode from './components/CustomNode';
 import { NODE_LIBRARY } from './nodeTypes';
 
@@ -16,17 +17,23 @@ export default function App() {
   const [edges, , onEdgesChange] = useEdgesState([]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        fitView
-      >
-        <Background gap={20} />
-      </ReactFlow>
+    <div className="app">
+      <header className="topbar">NexusFlow <span>Visual IoT Rule Builder</span></header>
+      <div className="main">
+        <Sidebar />
+        <div className="canvas">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            fitView
+          >
+            <Background gap={20} />
+          </ReactFlow>
+        </div>
+      </div>
     </div>
   );
 }
