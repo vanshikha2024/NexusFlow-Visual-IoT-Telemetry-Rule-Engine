@@ -6,3 +6,4 @@ export const getHealth = asyncHandler(async (req, res) => {
   const healthData = HealthService.getHealthStatus();
   return ApiResponse.success(res, healthData, 'NexusFlow service is healthy');
 });
+

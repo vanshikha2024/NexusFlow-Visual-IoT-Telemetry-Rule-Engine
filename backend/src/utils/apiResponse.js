@@ -19,3 +19,4 @@ export class ApiResponse {
     return res.status(201).json(new ApiResponse(201, data, message));
   }
 }
+

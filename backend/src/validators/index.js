@@ -25,3 +25,4 @@ export const validate = (validatorFn) => {
 export default {
   validate,
 };
+
