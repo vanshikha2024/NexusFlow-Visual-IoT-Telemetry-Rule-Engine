@@ -362,3 +362,290 @@
   font-size: 12px;
   margin-top: 6px;
 }
+
+
+/* NEXUSFLOW MONITORING CHARTS */
+
+.chart-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-header h3 {
+  margin-bottom: 7px;
+}
+
+.chart-header p {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.chart-unit {
+  color: #38bdf8;
+  background: #102e46;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chart-current-value {
+  color: #f8fafc;
+  font-size: 27px;
+  font-weight: 700;
+  margin: 18px 0 8px;
+}
+
+.chart-current-value span {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.chart-note {
+  color: #64748b;
+  font-size: 11px;
+  margin-top: 12px;
+}
+
+/* DEVICE MONITORING */
+
+.panel-subtitle {
+  color: #94a3b8;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.device-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 22px 0;
+  padding: 16px;
+  background: #0b1120;
+  border-radius: 9px;
+}
+
+.device-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.summary-number {
+  font-size: 23px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.summary-label {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.online-text {
+  color: #4ade80;
+}
+
+.offline-text {
+  color: #fb7185;
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 0;
+  border-top: 1px solid #263244;
+}
+
+.device-icon {
+  background: #102e46;
+  color: #38bdf8;
+  padding: 11px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.device-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-info strong {
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.device-info span {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.device-status-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.device-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  padding: 5px 8px;
+  border-radius: 20px;
+}
+
+.device-online {
+  color: #4ade80;
+  background: #123326;
+}
+
+.device-offline {
+  color: #fb7185;
+  background: #431f2a;
+}
+
+.device-status-info small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+@media (max-width: 500px) {
+  .device-row {
+    gap: 8px;
+  }
+
+  .device-info strong {
+    font-size: 10px;
+  }
+}
+
+/* ALERT HISTORY */
+
+.history-row,
+.workflow-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px 0;
+  border-top: 1px solid #263244;
+}
+
+.history-icon,
+.workflow-icon {
+  padding: 11px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.history-icon.critical {
+  color: #fb7185;
+  background: #431f2a;
+}
+
+.history-icon.warning {
+  color: #fb923c;
+  background: #431f16;
+}
+
+.history-icon.info {
+  color: #38bdf8;
+  background: #102e46;
+}
+
+.history-content,
+.workflow-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-content strong,
+.workflow-info strong {
+  font-size: 13px;
+  color: #e2e8f0;
+}
+
+.history-content p,
+.workflow-info p {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.history-content small,
+.workflow-info small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 10px;
+  margin-top: 7px;
+}
+
+.severity,
+.workflow-badge {
+  font-size: 10px;
+  padding: 6px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.severity.critical {
+  background: #431f2a;
+  color: #fb7185;
+}
+
+.severity.warning {
+  background: #431f16;
+  color: #fb923c;
+}
+
+.severity.info {
+  background: #102e46;
+  color: #38bdf8;
+}
+
+/* WORKFLOW STATUS */
+
+.workflow-icon {
+  color: #38bdf8;
+  background: #102e46;
+}
+
+.workflow-badge.triggered {
+  color: #fb7185;
+  background: #431f2a;
+}
+
+.workflow-badge.running {
+  color: #4ade80;
+  background: #123326;
+}
+
+.workflow-badge.completed {
+  color: #38bdf8;
+  background: #102e46;
+}
