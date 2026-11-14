@@ -1,4 +1,9 @@
 import { ApiError } from '../utils/apiError.js';
+import {
+  validateTelemetry,
+  validateTelemetryBulk,
+  validateTelemetryRecord,
+} from './telemetry.validator.js';
 
 /**
  * Higher-order middleware to validate incoming request data.
@@ -22,7 +27,11 @@ export const validate = (validatorFn) => {
   };
 };
 
+export { validateTelemetry, validateTelemetryBulk, validateTelemetryRecord };
+
 export default {
   validate,
+  validateTelemetry,
+  validateTelemetryBulk,
+  validateTelemetryRecord,
 };
-

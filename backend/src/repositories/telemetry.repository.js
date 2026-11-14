@@ -24,6 +24,21 @@ export class TelemetryRepository {
   }
 
   /**
+   * Sets or overrides the active collection instance (useful for test doubles).
+   * @param {import('mongodb').Collection | null} collection
+   */
+  setCollection(collection) {
+    this._collection = collection;
+  }
+
+  /**
+   * Resets injected collection back to default database connection.
+   */
+  resetCollection() {
+    this._collection = null;
+  }
+
+  /**
    * Retrieves the MongoDB collection instance.
    * Throws 503 if database connection is unavailable.
    * @returns {import('mongodb').Collection}

@@ -72,3 +72,4 @@ The backend telemetry repository (`TelemetryRepository`) provides:
 * `findTelemetryBySensor(sensorId, options)`: Queries telemetry with optional `startTime`, `endTime`, `limit`, and `sort`.
 * `getLatestTelemetry(sensorId)`: Retrieves the most recent telemetry document for a sensor.
 * Connection resilience: Handles connection dropouts gracefully without crashing the server.
+

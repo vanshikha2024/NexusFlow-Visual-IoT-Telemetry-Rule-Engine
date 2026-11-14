@@ -236,3 +236,4 @@ describe('TelemetryRepository (Unit Tests with Test Doubles)', () => {
     );
   });
 });
+
