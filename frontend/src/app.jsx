@@ -1,38 +1,61 @@
-import { ReactFlow, Background, useNodesState, useEdgesState } from '@xyflow/react';
+import { useCallback } from 'react';
+import {
+  ReactFlow, ReactFlowProvider, Background,
+  useNodesState, useEdgesState, useReactFlow,
+} from '@xyflow/react';
 import Sidebar from './components/Sidebar';
 import CustomNode from './components/CustomNode';
-import { NODE_LIBRARY } from './nodeTypes';
 
 const nodeTypes = { dataSource: CustomNode, math: CustomNode, action: CustomNode };
+let idCounter = 0;
+const nextId = () => `node_${++idCounter}`;
 
-const initialNodes = [0, 2, 4].map((i, idx) => ({
-  id: `test_${idx}`,
-  type: NODE_LIBRARY[i].type,
-  position: { x: 100 + idx * 260, y: 150 },
-  data: NODE_LIBRARY[i],
-}));
+function Canvas() {
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, , onEdgesChange] = useEdgesState([]);
+  const { screenToFlowPosition } = useReactFlow();
+
+  const onDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData('application/nexusflow');
+    if (!raw) return;
+    const item = JSON.parse(raw);
+    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    setNodes((nds) => nds.concat({ id: nextId(), type: item.type, position, data: item }));
+  }, [screenToFlowPosition, setNodes]);
+
+  return (
+    <div className="canvas">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        fitView
+      >
+        <Background gap={20} />
+      </ReactFlow>
+    </div>
+  );
+}
 
 export default function App() {
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState([]);
-
   return (
     <div className="app">
       <header className="topbar">NexusFlow <span>Visual IoT Rule Builder</span></header>
       <div className="main">
-        <Sidebar />
-        <div className="canvas">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            fitView
-          >
-            <Background gap={20} />
-          </ReactFlow>
-        </div>
+        <ReactFlowProvider>
+          <Sidebar />
+          <Canvas />
+        </ReactFlowProvider>
       </div>
     </div>
   );
