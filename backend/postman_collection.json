@@ -1,0 +1,166 @@
+{
+  "info": {
+    "name": "NexusFlow Telemetry Ingestion API",
+    "_postman_id": "nexusflow-telemetry-v1",
+    "description": "Day 3 Express Telemetry Ingestion REST API Collection for NexusFlow Visual IoT Telemetry Rule Engine",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "health"]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Single)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sensorId\": \"turbine-sensor-01\",\n  \"sensorType\": \"Turbine Sensor\",\n  \"value\": 1850.5,\n  \"unit\": \"RPM\",\n  \"location\": \"Sector 4\",\n  \"timestamp\": \"2026-11-14T06:00:00.000Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry"]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Single - Missing sensorId - 400 Expected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"value\": 1500,\n  \"unit\": \"RPM\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry"]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Single - Invalid Value - 400 Expected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sensorId\": \"temp-sensor-01\",\n  \"value\": \"non-numeric-value\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry"]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Bulk - Raw Array)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"sensorId\": \"temp-sensor-01\",\n    \"sensorType\": \"Temperature Sensor\",\n    \"value\": 85.6,\n    \"unit\": \"°C\",\n    \"location\": \"Furnace Room\"\n  },\n  {\n    \"sensorId\": \"humidity-sensor-01\",\n    \"sensorType\": \"Humidity Sensor\",\n    \"value\": 62.4,\n    \"unit\": \"%\",\n    \"location\": \"Storage Unit\"\n  },\n  {\n    \"sensorId\": \"turbine-sensor-01\",\n    \"sensorType\": \"Turbine Sensor\",\n    \"value\": 1920.0,\n    \"unit\": \"RPM\",\n    \"location\": \"Turbine Hall\"\n  }\n]"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "bulk"]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Bulk - Wrapped Records Object)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"records\": [\n    {\n      \"sensorId\": \"pressure-sensor-01\",\n      \"value\": 101.3,\n      \"unit\": \"kPa\"\n    },\n    {\n      \"sensorId\": \"pressure-sensor-02\",\n      \"value\": 102.8,\n      \"unit\": \"kPa\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "bulk"]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Bulk - Invalid Item in Batch - 400 Expected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"sensorId\": \"valid-sensor\",\n    \"value\": 45.0\n  },\n  {\n    \"sensorId\": \"\",\n    \"value\": 50.0\n  }\n]"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "bulk"]
+        }
+      }
+    },
+    {
+      "name": "Get Telemetry By Sensor",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/turbine-sensor-01?limit=50",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "turbine-sensor-01"],
+          "query": [
+            { "key": "limit", "value": "50" },
+            { "key": "startTime", "value": "2026-11-14T00:00:00.000Z", "disabled": true },
+            { "key": "endTime", "value": "2026-11-14T23:59:59.000Z", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Latest Telemetry For Sensor",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/turbine-sensor-01/latest",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "turbine-sensor-01", "latest"]
+        }
+      }
+    }
+  ]
+}

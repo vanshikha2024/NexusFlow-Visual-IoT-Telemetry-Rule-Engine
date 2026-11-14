@@ -17,6 +17,7 @@ import HumidityChart from "./HumidityChart";
 import DeviceStatus from "./DeviceStatus";
 import AlertPanel from "../alerts/AlertPanel";
 import ExecutionStatus from "../workflow/ExecutionStatus";
+import TurbineMonitoring from "./TurbineMonitoring";
 
 function Dashboard() {
   return (
@@ -79,6 +80,8 @@ function Dashboard() {
           <DeviceStatus />
           <AlertPanel />
         </section>
+
+        <TurbineMonitoring />
 
         <ExecutionStatus />
 
