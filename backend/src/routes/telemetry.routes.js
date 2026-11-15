@@ -4,6 +4,7 @@ import {
   createBulkTelemetry,
   getTelemetryBySensor,
   getLatestTelemetry,
+  getTelemetryMetrics,
 } from '../controllers/telemetry.controller.js';
 import {
   validateTelemetry,
@@ -16,9 +17,13 @@ const router = Router();
 // POST /api/telemetry
 router.post('/', validateTelemetry, createTelemetry);
 
-// Ingest batch of telemetry records
+// Ingest batch of telemetry records (with partial failure handling & limits)
 // POST /api/telemetry/bulk
 router.post('/bulk', validateTelemetryBulk, createBulkTelemetry);
+
+// Ingestion operational metrics
+// GET /api/telemetry/metrics (Placed before /:sensorId to prevent route conflict)
+router.get('/metrics', getTelemetryMetrics);
 
 // Query telemetry records by sensorId
 // GET /api/telemetry/:sensorId

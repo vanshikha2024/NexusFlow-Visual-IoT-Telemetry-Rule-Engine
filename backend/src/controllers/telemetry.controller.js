@@ -18,12 +18,31 @@ export const createTelemetry = asyncHandler(async (req, res) => {
 });
 
 /**
- * Ingest multiple telemetry records in bulk.
+ * Ingest multiple telemetry records in bulk with partial failure resilience.
  * POST /api/telemetry/bulk
  */
 export const createBulkTelemetry = asyncHandler(async (req, res) => {
-  const records = req.validatedRecords || (Array.isArray(req.body) ? req.body : req.body?.records);
-  const result = await telemetryService.ingestBulkTelemetry(records);
+  const payload = req.bulkPayload || {
+    validRecords: (Array.isArray(req.body) ? req.body : req.body?.records || []).map((r, i) => ({
+      originalIndex: i,
+      record: r,
+    })),
+    rejectedRecords: [],
+    total: Array.isArray(req.body) ? req.body.length : req.body?.records?.length || 0,
+  };
+
+  const result = await telemetryService.ingestBulkTelemetry(payload);
+
+  // If partial success (some succeeded, some failed), return 207 Multi-Status
+  if (result.isPartial) {
+    return ApiResponse.success(
+      res,
+      result,
+      `Bulk telemetry partially ingested: ${result.insertedCount} succeeded, ${result.failedCount} rejected`,
+      207
+    );
+  }
+
   return ApiResponse.success(
     res,
     result,
@@ -73,9 +92,19 @@ export const getLatestTelemetry = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * Retrieve operational telemetry ingestion metrics.
+ * GET /api/telemetry/metrics
+ */
+export const getTelemetryMetrics = asyncHandler(async (req, res) => {
+  const snapshot = telemetryService.getMetrics();
+  return ApiResponse.success(res, snapshot, 'Telemetry ingestion metrics retrieved successfully');
+});
+
 export default {
   createTelemetry,
   createBulkTelemetry,
   getTelemetryBySensor,
   getLatestTelemetry,
+  getTelemetryMetrics,
 };

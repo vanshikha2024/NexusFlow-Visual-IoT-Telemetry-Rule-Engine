@@ -273,7 +273,7 @@ describe('Telemetry Ingestion REST API (Express Integration Tests)', () => {
       { sensorId: 'temp-03', value: 'invalid' }, // Invalid value at index 2
     ];
 
-    const res = await fetch(`${baseUrl}/api/telemetry/bulk`, {
+    const res = await fetch(`${baseUrl}/api/telemetry/bulk?allOrNone=true`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(batch),
@@ -338,3 +338,4 @@ describe('Telemetry Ingestion REST API (Express Integration Tests)', () => {
     assert.equal(resNotFound.status, 404);
   });
 });
+

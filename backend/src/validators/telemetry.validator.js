@@ -1,10 +1,11 @@
+import { env } from '../config/env.js';
 import { ApiError } from '../utils/apiError.js';
 
 /**
  * Validates a single telemetry item object.
  * @param {any} item - The telemetry record to validate
  * @param {number} [index] - Optional index when validating inside a batch
- * @returns {{ isValid: boolean, errors: Array<{ field: string, message: string }>, normalized?: Object }}
+ * @returns {{ isValid: boolean, errors: Array<{ field: string, message: string }>, sensorId?: string }}
  */
 export const validateTelemetryRecord = (item, index = null) => {
   const errors = [];
@@ -16,13 +17,14 @@ export const validateTelemetryRecord = (item, index = null) => {
       errors: [
         {
           field: index !== null ? `records[${index}]` : 'body',
-          message: `${prefix}Telemetry record must be a non-null object.`,
+          message: `${prefix}Telemetry record must be a non-null JSON object.`,
         },
       ],
+      sensorId: null,
     };
   }
 
-  // 1. Validate sensorId
+  // 1. Validate sensorId (required, non-empty string)
   const sensorId =
     item.metadata?.sensorId ||
     item.sensorId ||
@@ -36,7 +38,7 @@ export const validateTelemetryRecord = (item, index = null) => {
     });
   }
 
-  // 2. Validate value (numeric measurement)
+  // 2. Validate value (numeric measurement required)
   const val = item.value !== undefined ? item.value : item.reading;
   if (val === undefined || val === null) {
     errors.push({
@@ -83,6 +85,7 @@ export const validateTelemetryRecord = (item, index = null) => {
   return {
     isValid: errors.length === 0,
     errors,
+    sensorId: typeof sensorId === 'string' ? sensorId.trim() : null,
   };
 };
 
@@ -90,7 +93,12 @@ export const validateTelemetryRecord = (item, index = null) => {
  * Express middleware for validating single telemetry record in POST /api/telemetry
  */
 export const validateTelemetry = (req, res, next) => {
-  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).length === 0) {
+  if (
+    !req.body ||
+    typeof req.body !== 'object' ||
+    Array.isArray(req.body) ||
+    Object.keys(req.body).length === 0
+  ) {
     return next(
       new ApiError(400, 'Request body must be a non-empty JSON object.', [
         { field: 'body', message: 'Request body must be a non-empty JSON object.' },
@@ -100,9 +108,7 @@ export const validateTelemetry = (req, res, next) => {
 
   const { isValid, errors } = validateTelemetryRecord(req.body);
   if (!isValid) {
-    return next(
-      new ApiError(400, 'Telemetry validation failed.', errors)
-    );
+    return next(new ApiError(400, 'Telemetry validation failed.', errors));
   }
 
   next();
@@ -110,6 +116,7 @@ export const validateTelemetry = (req, res, next) => {
 
 /**
  * Express middleware for validating bulk telemetry records in POST /api/telemetry/bulk
+ * Supports safe partial failure handling and enforces batch size limits.
  */
 export const validateTelemetryBulk = (req, res, next) => {
   if (!req.body) {
@@ -120,7 +127,7 @@ export const validateTelemetryBulk = (req, res, next) => {
     );
   }
 
-  // Support both raw array `[ ... ]` and wrapped `{ records: [ ... ] }` or `{ telemetry: [ ... ] }`
+  // Support both raw array `[ ... ]` and wrapped `{ records: [ ... ] }`
   let records = null;
   if (Array.isArray(req.body)) {
     records = req.body;
@@ -134,6 +141,7 @@ export const validateTelemetryBulk = (req, res, next) => {
     }
   }
 
+  // Check if non-empty array
   if (!records || !Array.isArray(records) || records.length === 0) {
     return next(
       new ApiError(
@@ -142,51 +150,83 @@ export const validateTelemetryBulk = (req, res, next) => {
         [
           {
             field: 'records',
-            message: 'Provide a non-empty array of telemetry objects in the request body or "records" field.',
+            message: 'Provide a non-empty array of telemetry objects.',
           },
         ]
       )
     );
   }
 
-  // Maximum batch size limit (DoS protection)
-  const MAX_BATCH_SIZE = 1000;
-  if (records.length > MAX_BATCH_SIZE) {
+  // Enforce batch size limit (prevent unbounded memory spikes)
+  if (records.length > env.MAX_BATCH_SIZE) {
     return next(
       new ApiError(
-        400,
-        `Batch size exceeds maximum limit of ${MAX_BATCH_SIZE} records.`,
+        413,
+        `Batch size of ${records.length} exceeds maximum allowed limit of ${env.MAX_BATCH_SIZE} records.`,
         [
           {
             field: 'records',
-            message: `Batch contains ${records.length} records. Maximum allowed is ${MAX_BATCH_SIZE}.`,
+            message: `Batch contains ${records.length} records. Maximum allowed is ${env.MAX_BATCH_SIZE}.`,
           },
         ]
       )
     );
   }
 
-  // Validate every record in the array
-  const allErrors = [];
-  records.forEach((record, index) => {
-    const { isValid, errors } = validateTelemetryRecord(record, index);
-    if (!isValid) {
-      allErrors.push(...errors);
-    }
-  });
+  // Validate each record individually to support partial failure isolation
+  const validRecords = [];
+  const rejectedRecords = [];
 
-  if (allErrors.length > 0) {
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    const { isValid, errors, sensorId } = validateTelemetryRecord(record, i);
+
+    if (isValid) {
+      validRecords.push({ originalIndex: i, record });
+    } else {
+      rejectedRecords.push({
+        index: i,
+        sensorId,
+        errors,
+      });
+    }
+  }
+
+  // Strict all-or-nothing mode if requested via query or header
+  const isAllOrNone =
+    req.query.allOrNone === 'true' ||
+    req.headers['x-all-or-none'] === 'true';
+
+  if (isAllOrNone && rejectedRecords.length > 0) {
+    const flatErrors = rejectedRecords.flatMap((r) => r.errors);
     return next(
       new ApiError(
         400,
-        `Bulk telemetry validation failed (${allErrors.length} errors found across batch).`,
-        allErrors
+        `All-or-nothing bulk validation failed (${flatErrors.length} errors across batch).`,
+        flatErrors
       )
     );
   }
 
-  // Attach normalized array to req for controller/service efficiency
-  req.validatedRecords = records;
+  // If every record in the batch failed validation, reject completely with 400
+  if (validRecords.length === 0) {
+    const flatErrors = rejectedRecords.flatMap((r) => r.errors);
+    return next(
+      new ApiError(
+        400,
+        `Bulk telemetry validation failed: all ${records.length} records are invalid.`,
+        flatErrors
+      )
+    );
+  }
+
+  // Attach partitioned payload for safe partial ingestion
+  req.bulkPayload = {
+    validRecords,
+    rejectedRecords,
+    total: records.length,
+  };
+
   next();
 };
 

@@ -21,6 +21,11 @@ export const env = Object.freeze({
   TELEMETRY_TIME_FIELD: process.env.TELEMETRY_TIME_FIELD || 'timestamp',
   TELEMETRY_META_FIELD: process.env.TELEMETRY_META_FIELD || 'metadata',
 
+  // Ingestion Safety & Memory Limits
+  MAX_BATCH_SIZE: parseInt(process.env.MAX_BATCH_SIZE, 10) || 500,
+  MAX_REQUEST_SIZE: process.env.MAX_REQUEST_SIZE || '2mb',
+  INGESTION_CHUNK_SIZE: parseInt(process.env.INGESTION_CHUNK_SIZE, 10) || 250,
+
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV !== 'production',
 });

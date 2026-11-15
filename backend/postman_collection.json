@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "NexusFlow Telemetry Ingestion API",
-    "_postman_id": "nexusflow-telemetry-v1",
-    "description": "Day 3 Express Telemetry Ingestion REST API Collection for NexusFlow Visual IoT Telemetry Rule Engine",
+    "name": "NexusFlow Telemetry Ingestion & Reliability API",
+    "_postman_id": "nexusflow-telemetry-v2",
+    "description": "Day 4 Express Telemetry Ingestion, Bulk Processing, Reliability & Metrics Collection for NexusFlow Visual IoT Telemetry Rule Engine",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,7 +14,7 @@
   ],
   "item": [
     {
-      "name": "Health Check",
+      "name": "Health Check (with Ingestion Stats)",
       "request": {
         "method": "GET",
         "header": [],
@@ -22,6 +22,18 @@
           "raw": "{{baseUrl}}/api/health",
           "host": ["{{baseUrl}}"],
           "path": ["api", "health"]
+        }
+      }
+    },
+    {
+      "name": "Get Operational Ingestion Metrics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/metrics",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "metrics"]
         }
       }
     },
@@ -34,7 +46,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"sensorId\": \"turbine-sensor-01\",\n  \"sensorType\": \"Turbine Sensor\",\n  \"value\": 1850.5,\n  \"unit\": \"RPM\",\n  \"location\": \"Sector 4\",\n  \"timestamp\": \"2026-11-14T06:00:00.000Z\"\n}"
+          "raw": "{\n  \"sensorId\": \"turbine-sensor-01\",\n  \"sensorType\": \"Turbine Sensor\",\n  \"value\": 1850.5,\n  \"unit\": \"RPM\",\n  \"location\": \"Sector 4\",\n  \"timestamp\": \"2026-11-15T06:00:00.000Z\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/telemetry",
@@ -62,7 +74,7 @@
       }
     },
     {
-      "name": "Ingest Telemetry (Single - Invalid Value - 400 Expected)",
+      "name": "Ingest Telemetry (Single - Malformed JSON - 400 Expected)",
       "request": {
         "method": "POST",
         "header": [
@@ -70,7 +82,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"sensorId\": \"temp-sensor-01\",\n  \"value\": \"non-numeric-value\"\n}"
+          "raw": "{\n  \"sensorId\": \"bad-json\",\n  \"value\": invalid_syntax\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/telemetry",
@@ -80,7 +92,7 @@
       }
     },
     {
-      "name": "Ingest Telemetry (Bulk - Raw Array)",
+      "name": "Ingest Telemetry (Bulk - Full Success 201)",
       "request": {
         "method": "POST",
         "header": [
@@ -98,7 +110,7 @@
       }
     },
     {
-      "name": "Ingest Telemetry (Bulk - Wrapped Records Object)",
+      "name": "Ingest Telemetry (Bulk - Partial Failure 207 Multi-Status)",
       "request": {
         "method": "POST",
         "header": [
@@ -106,7 +118,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"records\": [\n    {\n      \"sensorId\": \"pressure-sensor-01\",\n      \"value\": 101.3,\n      \"unit\": \"kPa\"\n    },\n    {\n      \"sensorId\": \"pressure-sensor-02\",\n      \"value\": 102.8,\n      \"unit\": \"kPa\"\n    }\n  ]\n}"
+          "raw": "[\n  {\n    \"sensorId\": \"valid-sensor-1\",\n    \"value\": 45.2,\n    \"unit\": \"°C\"\n  },\n  {\n    \"sensorId\": \"\",\n    \"value\": 50.0\n  },\n  {\n    \"sensorId\": \"valid-sensor-2\",\n    \"value\": 88.0,\n    \"unit\": \"RPM\"\n  }\n]"
         },
         "url": {
           "raw": "{{baseUrl}}/api/telemetry/bulk",
@@ -116,7 +128,7 @@
       }
     },
     {
-      "name": "Ingest Telemetry (Bulk - Invalid Item in Batch - 400 Expected)",
+      "name": "Ingest Telemetry (Bulk - Atomic Mode ?allOrNone=true - 400 Expected)",
       "request": {
         "method": "POST",
         "header": [
@@ -124,7 +136,28 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "[\n  {\n    \"sensorId\": \"valid-sensor\",\n    \"value\": 45.0\n  },\n  {\n    \"sensorId\": \"\",\n    \"value\": 50.0\n  }\n]"
+          "raw": "[\n  {\n    \"sensorId\": \"valid-sensor-1\",\n    \"value\": 45.2\n  },\n  {\n    \"sensorId\": \"\",\n    \"value\": 50.0\n  }\n]"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/telemetry/bulk?allOrNone=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "telemetry", "bulk"],
+          "query": [
+            { "key": "allOrNone", "value": "true" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Ingest Telemetry (Bulk - Empty Batch - 400 Expected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[]"
         },
         "url": {
           "raw": "{{baseUrl}}/api/telemetry/bulk",
@@ -144,8 +177,8 @@
           "path": ["api", "telemetry", "turbine-sensor-01"],
           "query": [
             { "key": "limit", "value": "50" },
-            { "key": "startTime", "value": "2026-11-14T00:00:00.000Z", "disabled": true },
-            { "key": "endTime", "value": "2026-11-14T23:59:59.000Z", "disabled": true }
+            { "key": "startTime", "value": "2026-11-15T00:00:00.000Z", "disabled": true },
+            { "key": "endTime", "value": "2026-11-15T23:59:59.000Z", "disabled": true }
           ]
         }
       }

@@ -1,6 +1,6 @@
-# NexusFlow Telemetry Ingestion API Guide
+# NexusFlow Telemetry Ingestion & Reliability API Guide
 
-This document describes the Day 3 Telemetry Ingestion REST API endpoints, payload formats, validation rules, error handling, and testing instructions.
+This document describes the Day 4 Telemetry Ingestion REST API, including bulk batch processing, partial failure handling, size limits, operational metrics, validation rules, error handling, and testing instructions.
 
 A ready-to-import Postman Collection is available at [`backend/postman_collection.json`](backend/postman_collection.json).
 
@@ -8,13 +8,14 @@ A ready-to-import Postman Collection is available at [`backend/postman_collectio
 
 ## 1. Endpoints Overview
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/telemetry` | Ingest a single telemetry record |
-| `POST` | `/api/telemetry/bulk` | Ingest multiple telemetry records in batch |
-| `GET` | `/api/telemetry/:sensorId` | Query telemetry history by sensor |
-| `GET` | `/api/telemetry/:sensorId/latest` | Retrieve latest telemetry record for sensor |
-| `GET` | `/api/health` | Service health status |
+| Method | Endpoint | Description | Status Code |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/telemetry` | Ingest a single telemetry record | `201 Created` |
+| `POST` | `/api/telemetry/bulk` | Ingest multiple telemetry records with partial failure resilience | `201 Created` / `207 Multi-Status` |
+| `GET` | `/api/telemetry/metrics` | Retrieve operational telemetry metrics & active sensor counts | `200 OK` |
+| `GET` | `/api/telemetry/:sensorId` | Query telemetry history by sensor | `200 OK` |
+| `GET` | `/api/telemetry/:sensorId/latest` | Retrieve latest telemetry record for sensor | `200 OK` / `404` |
+| `GET` | `/api/health` | Service health status including telemetry stats | `200 OK` |
 
 ---
 
@@ -35,9 +36,10 @@ Content-Type: application/json
   "value": 1850.5,
   "unit": "RPM",
   "location": "Sector 4",
-  "timestamp": "2026-11-14T06:00:00.000Z"
+  "timestamp": "2026-11-15T06:00:00.000Z"
 }
 ```
+
 * `sensorId` *(string, required)*: Unique identifier of the sensor/device.
 * `value` *(number, required)*: Numeric reading/telemetry value.
 * `timestamp` *(string/number, optional)*: ISO 8601 string or epoch milliseconds. Defaults to current server time if omitted.
@@ -51,7 +53,7 @@ Content-Type: application/json
   "message": "Telemetry record ingested successfully",
   "data": {
     "_id": "673595b128537604f32e9871",
-    "timestamp": "2026-11-14T06:00:00.000Z",
+    "timestamp": "2026-11-15T06:00:00.000Z",
     "metadata": {
       "sensorId": "turbine-sensor-01",
       "sensorType": "Turbine Sensor",
@@ -63,26 +65,20 @@ Content-Type: application/json
 }
 ```
 
-#### cURL Example:
-```bash
-curl -X POST http://localhost:5000/api/telemetry \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sensorId": "turbine-sensor-01",
-    "sensorType": "Turbine Sensor",
-    "value": 1850.5,
-    "unit": "RPM",
-    "location": "Sector 4"
-  }'
-```
-
 ---
 
-## 3. Ingest Bulk Telemetry Records
+## 3. Ingest Bulk Telemetry Records (Partial Failure Resilient)
 
 ### `POST /api/telemetry/bulk`
 
 Supports both a raw JSON array or a wrapped `{ records: [...] }` object.
+
+#### Safe Partial Failure Architecture:
+* **Batch Size Limit**: Configurable via `MAX_BATCH_SIZE` (default: 500 records). Requests exceeding this limit return `413 Payload Too Large`.
+* **Payload Size Limit**: Configurable via `MAX_REQUEST_SIZE` (default: 2MB).
+* **Event Loop Protection**: Large batches are chunked into database sub-batches of 250 records with non-blocking event-loop yields between chunks.
+* **Partial Failures**: If a batch has 95 valid records and 5 invalid records, the 95 valid records are persisted to MongoDB and HTTP `207 Multi-Status` is returned with detailed diagnostics for the 5 rejected items.
+* **Atomic Mode**: Add `?allOrNone=true` or header `X-All-Or-None: true` to reject the entire batch with `400 Bad Request` if any item fails validation.
 
 #### Request Body (Raw Array):
 ```json
@@ -111,55 +107,99 @@ Supports both a raw JSON array or a wrapped `{ records: [...] }` object.
 ]
 ```
 
-#### Request Body (Wrapped Object):
-```json
-{
-  "records": [
-    {
-      "sensorId": "pressure-sensor-01",
-      "value": 101.3,
-      "unit": "kPa"
-    },
-    {
-      "sensorId": "pressure-sensor-02",
-      "value": 102.8,
-      "unit": "kPa"
-    }
-  ]
-}
-```
-
-#### Success Response (`201 Created`):
+#### Full Success Response (`201 Created`):
 ```json
 {
   "statusCode": 201,
   "success": true,
   "message": "Bulk telemetry ingested successfully",
   "data": {
+    "total": 3,
     "insertedCount": 3,
+    "failedCount": 0,
+    "isPartial": false,
     "insertedIds": {
       "0": "673595b128537604f32e9872",
       "1": "673595b128537604f32e9873",
       "2": "673595b128537604f32e9874"
-    },
-    "documents": [ ... ]
+    }
   }
 }
 ```
 
-#### cURL Example:
-```bash
-curl -X POST http://localhost:5000/api/telemetry/bulk \
-  -H "Content-Type: application/json" \
-  -d '[
-    { "sensorId": "temp-01", "value": 85.6, "unit": "°C" },
-    { "sensorId": "humidity-01", "value": 62.4, "unit": "%" }
-  ]'
+#### Partial Success Response (`207 Multi-Status`):
+Returned when valid records are persisted and invalid records are safely rejected:
+```json
+{
+  "statusCode": 207,
+  "success": true,
+  "message": "Bulk telemetry partially ingested: 2 succeeded, 1 rejected",
+  "data": {
+    "total": 3,
+    "insertedCount": 2,
+    "failedCount": 1,
+    "isPartial": true,
+    "insertedIds": {
+      "0": "673595b128537604f32e9872",
+      "2": "673595b128537604f32e9874"
+    },
+    "errors": [
+      {
+        "index": 1,
+        "sensorId": null,
+        "errors": [
+          {
+            "field": "records[1].sensorId",
+            "message": "records[1].sensorId is required and must be a non-empty string."
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ---
 
-## 4. Query Endpoints
+## 4. Operational Ingestion Metrics
+
+### `GET /api/telemetry/metrics`
+
+Returns live telemetry counters, active sensors, rolling latencies, and database health.
+
+```bash
+curl -X GET http://localhost:5000/api/telemetry/metrics
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "statusCode": 200,
+  "success": true,
+  "message": "Telemetry ingestion metrics retrieved successfully",
+  "data": {
+    "uptimeSeconds": 360,
+    "ingestion": {
+      "totalIngested": 1450,
+      "totalFailed": 8,
+      "totalBatches": 24,
+      "totalSingleRequests": 85,
+      "totalRequests": 109,
+      "averageLatencyMs": 4.12,
+      "lastIngestedAt": "2026-11-15T06:05:00.000Z",
+      "activeSensorsCount": 14
+    },
+    "database": {
+      "status": "connected",
+      "connectionErrors": 0
+    }
+  }
+}
+```
+
+---
+
+## 5. Query Endpoints
 
 ### `GET /api/telemetry/:sensorId`
 Query telemetry history for a specific sensor.
@@ -183,64 +223,40 @@ curl -X GET "http://localhost:5000/api/telemetry/turbine-sensor-01/latest"
 
 ---
 
-## 5. Validation and Error Responses
+## 6. Error Responses & Status Codes
 
-When a request contains invalid or missing fields, the API returns a structured `400 Bad Request` response detailing the specific error(s):
+All errors adhere to the standardized API response schema:
 
-#### Missing `sensorId`:
+| Status Code | Scenario | Example Message |
+| :--- | :--- | :--- |
+| **`400 Bad Request`** | Validation failure or all batch items invalid | `"Telemetry validation failed."` |
+| **`400 Bad Request`** | Malformed JSON in body | `"Malformed JSON payload in request body."` |
+| **`413 Payload Too Large`** | Batch exceeds `MAX_BATCH_SIZE` (500) | `"Batch size of 501 exceeds maximum allowed limit of 500 records."` |
+| **`413 Payload Too Large`** | Request payload exceeds `MAX_REQUEST_SIZE` (2MB) | `"Request payload exceeds size limit (2mb)."` |
+| **`404 Not Found`** | Sensor reading not found | `"No telemetry records found for sensor 'unknown'."` |
+| **`503 Service Unavailable`** | MongoDB disconnected or connection dropped | `"Database service unavailable. Please retry later."` |
+
+#### Example 413 Payload Too Large Error:
 ```json
 {
   "success": false,
-  "statusCode": 400,
-  "message": "Telemetry validation failed.",
+  "statusCode": 413,
+  "message": "Batch size of 501 exceeds maximum allowed limit of 500 records.",
   "errors": [
     {
-      "field": "sensorId",
-      "message": "sensorId is required and must be a non-empty string."
+      "field": "records",
+      "message": "Batch contains 501 records. Maximum allowed is 500."
     }
   ]
 }
 ```
 
-#### Non-Numeric `value`:
-```json
-{
-  "success": false,
-  "statusCode": 400,
-  "message": "Telemetry validation failed.",
-  "errors": [
-    {
-      "field": "value",
-      "message": "value must be a valid finite number. Received: not-a-number"
-    }
-  ]
-}
-```
-
-#### Batch Validation Errors in Bulk:
-```json
-{
-  "success": false,
-  "statusCode": 400,
-  "message": "Bulk telemetry validation failed (2 errors found across batch).",
-  "errors": [
-    {
-      "field": "records[1].sensorId",
-      "message": "records[1].sensorId is required and must be a non-empty string."
-    },
-    {
-      "field": "records[2].value",
-      "message": "records[2].value must be a valid finite number. Received: invalid"
-    }
-  ]
-}
-```
-
-#### Database Disconnected (`503 Service Unavailable`):
+#### Example 503 Database Unavailable Error:
 ```json
 {
   "success": false,
   "statusCode": 503,
-  "message": "Database service unavailable (current status: disconnected)."
+  "message": "Database service unavailable. Please retry later.",
+  "errors": []
 }
 ```

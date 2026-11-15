@@ -1,4 +1,5 @@
 import express from 'express';
+import { env } from './config/env.js';
 import { corsMiddleware } from './config/cors.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
@@ -10,9 +11,9 @@ const app = express();
 // Security and CORS middleware
 app.use(corsMiddleware);
 
-// Request body parsers
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Request body parsers with bounded memory limits
+app.use(express.json({ limit: env.MAX_REQUEST_SIZE }));
+app.use(express.urlencoded({ extended: true, limit: env.MAX_REQUEST_SIZE }));
 
 // Logging middleware
 app.use(requestLogger);
@@ -38,4 +39,3 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;
-

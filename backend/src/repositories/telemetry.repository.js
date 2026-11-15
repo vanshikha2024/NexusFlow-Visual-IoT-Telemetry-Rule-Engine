@@ -4,7 +4,11 @@ import {
   getSensorQueryKey,
 } from '../config/database.contract.js';
 import { getCollection } from '../config/db.js';
+import { env } from '../config/env.js';
 import { ApiError } from '../utils/apiError.js';
+import { chunkArray, yieldToEventLoop } from '../utils/asyncChunk.js';
+import { metrics } from '../utils/metrics.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Telemetry Repository
@@ -66,37 +70,107 @@ export class TelemetryRepository {
         ...document,
       };
     } catch (err) {
+      if (err.statusCode === 503 || err.name === 'MongoServerSelectionError' || err.name === 'MongoNetworkError') {
+        metrics.recordDbError();
+        throw new ApiError(503, 'Database service unavailable. Please retry later.');
+      }
       if (err instanceof ApiError) throw err;
       throw new ApiError(500, `Failed to insert telemetry: ${err.message}`);
     }
   }
 
   /**
-   * Inserts multiple telemetry records into the Time-Series collection in a single batch.
+   * Inserts multiple telemetry records into the Time-Series collection.
+   * Processes in non-blocking chunks and handles partial write failures safely.
    *
    * @param {Array<Object>} records - Array of raw telemetry objects
-   * @returns {Promise<{ insertedCount: number, insertedIds: Record<number, any>, documents: Array<Object> }>}
+   * @returns {Promise<{ insertedCount: number, insertedIds: Record<number, any>, documents: Array<Object>, writeErrors: Array<Object> }>}
    */
   async insertManyTelemetry(records) {
     if (!Array.isArray(records) || records.length === 0) {
       throw new ApiError(400, 'records must be a non-empty array.');
     }
 
+    let collection;
     try {
-      const documents = records.map((record) =>
-        normalizeTelemetry(record, this.contract)
-      );
-      const collection = this.getCollection();
-      const result = await collection.insertMany(documents, { ordered: false });
-      return {
-        insertedCount: result.insertedCount,
-        insertedIds: result.insertedIds,
-        documents,
-      };
+      collection = this.getCollection();
     } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw new ApiError(500, `Failed to insert telemetry batch: ${err.message}`);
+      metrics.recordDbError();
+      throw err;
     }
+
+    const documents = records.map((record) =>
+      normalizeTelemetry(record, this.contract)
+    );
+
+    // Chunking to avoid blocking the event loop on large batches
+    const chunkSize = env.INGESTION_CHUNK_SIZE || 250;
+    const chunks = chunkArray(documents, chunkSize);
+
+    let totalInserted = 0;
+    const combinedInsertedIds = {};
+    const writeErrors = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      // Yield to event loop between chunks if multi-chunk
+      if (i > 0) {
+        await yieldToEventLoop();
+      }
+
+      const chunk = chunks[i];
+      const offset = i * chunkSize;
+
+      try {
+        const result = await collection.insertMany(chunk, { ordered: false });
+        totalInserted += result.insertedCount || chunk.length;
+        if (result.insertedIds) {
+          for (const [idx, id] of Object.entries(result.insertedIds)) {
+            combinedInsertedIds[offset + Number(idx)] = id;
+          }
+        }
+      } catch (err) {
+        // Handle partial write errors from MongoDB { ordered: false }
+        if (err.name === 'MongoBulkWriteError' || err.writeErrors) {
+          const insertedFromError = err.result?.insertedCount || 0;
+          totalInserted += insertedFromError;
+
+          if (err.result?.insertedIds) {
+            for (const [idx, id] of Object.entries(err.result.insertedIds)) {
+              combinedInsertedIds[offset + Number(idx)] = id;
+            }
+          }
+
+          if (Array.isArray(err.writeErrors)) {
+            for (const wErr of err.writeErrors) {
+              writeErrors.push({
+                index: offset + wErr.index,
+                code: wErr.code,
+                message: wErr.errmsg || wErr.message,
+              });
+            }
+          }
+          logger.warn(
+            `Bulk write partial error in chunk ${i + 1}/${chunks.length}: ${err.writeErrors?.length || 0} items failed.`
+          );
+        } else if (
+          err.statusCode === 503 ||
+          err.name === 'MongoServerSelectionError' ||
+          err.name === 'MongoNetworkError'
+        ) {
+          metrics.recordDbError();
+          throw new ApiError(503, 'Database service unavailable. Please retry later.');
+        } else {
+          throw new ApiError(500, `Failed to insert telemetry batch: ${err.message}`);
+        }
+      }
+    }
+
+    return {
+      insertedCount: totalInserted,
+      insertedIds: combinedInsertedIds,
+      documents,
+      writeErrors,
+    };
   }
 
   /**
@@ -146,6 +220,10 @@ export class TelemetryRepository {
       const collection = this.getCollection();
       return await collection.find(query).sort(sort).skip(skip).limit(limit).toArray();
     } catch (err) {
+      if (err.statusCode === 503 || err.name === 'MongoServerSelectionError' || err.name === 'MongoNetworkError') {
+        metrics.recordDbError();
+        throw new ApiError(503, 'Database service unavailable. Please retry later.');
+      }
       if (err instanceof ApiError) throw err;
       throw new ApiError(500, `Failed to query telemetry by sensor: ${err.message}`);
     }
@@ -169,6 +247,10 @@ export class TelemetryRepository {
       const collection = this.getCollection();
       return await collection.findOne({ [sensorKey]: sensorId.trim() }, { sort });
     } catch (err) {
+      if (err.statusCode === 503 || err.name === 'MongoServerSelectionError' || err.name === 'MongoNetworkError') {
+        metrics.recordDbError();
+        throw new ApiError(503, 'Database service unavailable. Please retry later.');
+      }
       if (err instanceof ApiError) throw err;
       throw new ApiError(500, `Failed to get latest telemetry: ${err.message}`);
     }
