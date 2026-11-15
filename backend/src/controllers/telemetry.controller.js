@@ -2,6 +2,78 @@ import { telemetryService } from '../services/telemetry.service.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getRuntimeMetrics } from '../utils/metrics.js';
+import {
+  getDatabaseStatus,
+  isConnected,
+  getDatabase,
+} from '../config/db.js';
+import { telemetryContract } from '../config/database.contract.js';
+
+
+/**
+ * Retrieve telemetry and runtime metrics.
+ * GET /api/telemetry/metrics
+ */
+export const getTelemetryMetrics = asyncHandler(async (req, res) => {
+  const runtime = getRuntimeMetrics();
+
+  const databaseStatus = getDatabaseStatus();
+
+  if (!isConnected()) {
+    return ApiResponse.success(
+      res,
+      {
+        ...runtime,
+        database: {
+          status: databaseStatus,
+          totalRecords: null,
+          activeSensors: null,
+        },
+      },
+      'Runtime metrics retrieved; database is unavailable'
+    );
+  }
+
+  const collection = getDatabase().collection(
+    telemetryContract.collectionName
+  );
+
+  const totalRecords = await collection.countDocuments();
+
+  const sensorResults = await collection.aggregate([
+    {
+      $group: {
+        _id: '$metadata.sensorId',
+      },
+    },
+    {
+      $match: {
+        _id: { $ne: null },
+      },
+    },
+    {
+      $count: 'total',
+    },
+  ]).toArray();
+
+  const activeSensors = sensorResults[0]?.total || 0;
+
+  return ApiResponse.success(
+    res,
+    {
+      ...runtime,
+      database: {
+        status: databaseStatus,
+        name: telemetryContract.databaseName,
+        collection: telemetryContract.collectionName,
+        totalRecords,
+        activeSensors,
+      },
+    },
+    'Telemetry metrics retrieved successfully'
+  );
+});
 
 /**
  * Ingest a single telemetry record.
@@ -78,4 +150,5 @@ export default {
   createBulkTelemetry,
   getTelemetryBySensor,
   getLatestTelemetry,
+  getTelemetryMetrics,
 };

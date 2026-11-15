@@ -18,6 +18,7 @@ import DeviceStatus from "./DeviceStatus";
 import AlertPanel from "../alerts/AlertPanel";
 import ExecutionStatus from "../workflow/ExecutionStatus";
 import TurbineMonitoring from "./TurbineMonitoring";
+import TelemetryMetrics from "./TelemetryMetrics";
 
 function Dashboard() {
   return (
@@ -82,6 +83,8 @@ function Dashboard() {
         </section>
 
         <TurbineMonitoring />
+
+        <TelemetryMetrics />
 
         <ExecutionStatus />
 

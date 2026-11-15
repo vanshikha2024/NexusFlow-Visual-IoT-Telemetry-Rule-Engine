@@ -4,6 +4,7 @@ import {
   createBulkTelemetry,
   getTelemetryBySensor,
   getLatestTelemetry,
+  getTelemetryMetrics,
 } from '../controllers/telemetry.controller.js';
 import {
   validateTelemetry,
@@ -19,6 +20,10 @@ router.post('/', validateTelemetry, createTelemetry);
 // Ingest batch of telemetry records
 // POST /api/telemetry/bulk
 router.post('/bulk', validateTelemetryBulk, createBulkTelemetry);
+
+// Retrieve telemetry operational metrics
+// GET /api/telemetry/metrics
+router.get('/metrics', getTelemetryMetrics);
 
 // Query telemetry records by sensorId
 // GET /api/telemetry/:sensorId

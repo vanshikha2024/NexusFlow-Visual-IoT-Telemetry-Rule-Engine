@@ -649,3 +649,106 @@
   color: #38bdf8;
   background: #102e46;
 }
+
+/* ========================================
+   NEXUSFLOW SYSTEM METRICS DASHBOARD
+======================================== */
+
+.telemetry-metrics {
+  margin-top: 24px;
+  padding: 24px;
+  background: linear-gradient(145deg, #111827, #0f172a);
+  border: 1px solid #263244;
+  border-radius: 14px;
+}
+
+.metrics-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 24px;
+}
+
+.metrics-heading h2 {
+  color: #f8fafc;
+  font-size: 19px;
+  margin-bottom: 7px;
+}
+
+.metrics-heading p {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.metrics-heading > span {
+  color: #4ade80;
+  background: #123326;
+  border: 1px solid #166534;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  background: #0b1120;
+  border: 1px solid #263244;
+  border-radius: 11px;
+  padding: 20px;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.metric-card:hover {
+  border-color: #38bdf8;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.10);
+}
+
+.metric-card h3 {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+.metric-card p {
+  color: #f8fafc;
+  font-size: 28px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .telemetry-metrics {
+    padding: 16px;
+  }
+
+  .metrics-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .metric-card p {
+    font-size: 24px;
+  }
+}
