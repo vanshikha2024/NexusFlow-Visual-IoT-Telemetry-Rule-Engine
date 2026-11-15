@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import {
   ReactFlow, ReactFlowProvider, Background,
-  useNodesState, useEdgesState, useReactFlow,
+  addEdge,useNodesState, useEdgesState, useReactFlow,
 } from '@xyflow/react';
 import Sidebar from './components/Sidebar';
 import CustomNode from './components/CustomNode';
@@ -12,9 +12,12 @@ const nextId = () => `node_${++idCounter}`;
 
 function Canvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, , onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { screenToFlowPosition } = useReactFlow();
-
+  const onConnect = useCallback(
+    (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
+    [setEdges]
+  );
   const onDragOver = useCallback((e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -37,6 +40,8 @@ function Canvas() {
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        deleteKeyCode={['Backspace', 'Delete']}
         onDrop={onDrop}
         onDragOver={onDragOver}
         fitView
