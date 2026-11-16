@@ -14,3 +14,7 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; color
 .hint { margin: 0 0 12px; font-size: 12px; color: #64748b; }
 .palette-item { padding: 10px 12px; margin-bottom: 8px; border: 1px solid #e2e8f0; border-left: 4px solid; border-radius: 8px; background: #f8fafc; cursor: grab; font-size: 14px; }
 .palette-item small { color: #64748b; font-size: 11px; }
+.palette-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); transform: translateY(-1px); transition: .15s; }
+.palette-item:active { cursor: grabbing; }
+.react-flow__edge-path { stroke: #0ea5e9; stroke-width: 2; }
+.react-flow__handle { width: 10px; height: 10px; background: #0f172a; }

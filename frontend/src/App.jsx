@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import {
-  ReactFlow, ReactFlowProvider, Background,
-  addEdge,useNodesState, useEdgesState, useReactFlow,
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
+  addEdge, useNodesState, useEdgesState, useReactFlow,
 } from '@xyflow/react';
 import Sidebar from './components/Sidebar';
 import CustomNode from './components/CustomNode';
@@ -47,6 +47,8 @@ function Canvas() {
         fitView
       >
         <Background gap={20} />
+        <Controls />
+        <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
   );
