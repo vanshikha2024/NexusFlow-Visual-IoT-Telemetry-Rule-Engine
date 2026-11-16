@@ -55,12 +55,14 @@ export const validateTelemetryRecord = (item, index = null) => {
   // 3. Validate timestamp if provided
   const rawTime = item.timestamp || item.time || item.createdAt;
   if (rawTime !== undefined && rawTime !== null) {
-    const parsed = new Date(rawTime);
+    const parsed = rawTime instanceof Date ? rawTime : new Date(rawTime);
     if (isNaN(parsed.getTime())) {
       errors.push({
         field: `${prefix}timestamp`,
         message: `${prefix}timestamp must be a valid ISO 8601 date, timestamp, or Date object. Received: ${rawTime}`,
       });
+    } else {
+      item._parsedTimestamp = parsed;
     }
   }
 

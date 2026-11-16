@@ -73,10 +73,14 @@ export class TelemetryService {
     const combinedErrors = [...rejectedRecords, ...writeErrors];
     const failedCount = combinedErrors.length;
 
-    // Collect sensor IDs for metrics
-    const activeSensors = validRecords
-      .map((v) => v.record?.metadata?.sensorId || v.record?.sensorId)
-      .filter(Boolean);
+    // Collect unique sensor IDs for metrics without redundant array allocations
+    const activeSensorsSet = new Set();
+    for (let i = 0; i < validRecords.length; i++) {
+      const rec = validRecords[i].record;
+      const sId = rec?.metadata?.sensorId || rec?.sensorId;
+      if (sId) activeSensorsSet.add(sId);
+    }
+    const activeSensors = Array.from(activeSensorsSet);
 
     metrics.recordIngestion({
       count: insertedCount,

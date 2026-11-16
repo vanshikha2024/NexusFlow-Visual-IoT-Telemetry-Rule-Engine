@@ -105,6 +105,52 @@ export class TelemetryRepository {
 
     // Chunking to avoid blocking the event loop on large batches
     const chunkSize = env.INGESTION_CHUNK_SIZE || 250;
+
+    // Fast-path: single chunk batch avoids multi-chunk slicing and ID mapping overhead
+    if (documents.length <= chunkSize) {
+      try {
+        const result = await collection.insertMany(documents, { ordered: false });
+        return {
+          insertedCount: result.insertedCount !== undefined ? result.insertedCount : documents.length,
+          insertedIds: result.insertedIds || {},
+          documents,
+          writeErrors: [],
+        };
+      } catch (err) {
+        if (err.name === 'MongoBulkWriteError' || err.writeErrors) {
+          const insertedFromError = err.result?.insertedCount || 0;
+          const writeErrors = [];
+          if (Array.isArray(err.writeErrors)) {
+            for (const wErr of err.writeErrors) {
+              writeErrors.push({
+                index: wErr.index,
+                code: wErr.code,
+                message: wErr.errmsg || wErr.message,
+              });
+            }
+          }
+          logger.warn(
+            `Bulk write partial error in single chunk: ${err.writeErrors?.length || 0} items failed.`
+          );
+          return {
+            insertedCount: insertedFromError,
+            insertedIds: err.result?.insertedIds || {},
+            documents,
+            writeErrors,
+          };
+        } else if (
+          err.statusCode === 503 ||
+          err.name === 'MongoServerSelectionError' ||
+          err.name === 'MongoNetworkError'
+        ) {
+          metrics.recordDbError();
+          throw new ApiError(503, 'Database service unavailable. Please retry later.');
+        } else {
+          throw new ApiError(500, `Failed to insert telemetry batch: ${err.message}`);
+        }
+      }
+    }
+
     const chunks = chunkArray(documents, chunkSize);
 
     let totalInserted = 0;
