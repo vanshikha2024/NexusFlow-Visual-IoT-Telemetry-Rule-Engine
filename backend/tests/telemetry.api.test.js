@@ -65,6 +65,22 @@ describe('Telemetry Ingestion REST API (Express Integration Tests)', () => {
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         return matched[0] || null;
       },
+
+      countDocuments: async () => mockStore.length,
+
+      aggregate: (pipeline) => {
+        const sensorIds = [
+          ...new Set(
+            mockStore
+              .map((item) => item.metadata?.sensorId)
+              .filter(Boolean)
+          ),
+        ];
+
+        return {
+          toArray: async () => [{ total: sensorIds.length }],
+        };
+      },
     };
   };
 
@@ -336,5 +352,38 @@ describe('Telemetry Ingestion REST API (Express Integration Tests)', () => {
     // Non-existent sensor returns 404
     const resNotFound = await fetch(`${baseUrl}/api/telemetry/unknown-sensor-xyz/latest`);
     assert.equal(resNotFound.status, 404);
+  });
+
+    // --- GET /api/telemetry/metrics ---
+
+  it('GET /api/telemetry/metrics returns runtime metrics when database is disconnected', async () => {
+    const res = await fetch(`${baseUrl}/api/telemetry/metrics`);
+
+    assert.equal(res.status, 200);
+
+    const body = await res.json();
+
+    assert.equal(body.success, true);
+    assert.ok(body.data);
+    assert.equal(body.data.database.status, 'disconnected');
+    assert.equal(body.data.database.totalRecords, null);
+    assert.equal(body.data.database.activeSensors, null);
+    assert.equal(typeof body.data.totalIngested, 'number');
+    assert.equal(typeof body.data.totalRequests, 'number');
+    assert.equal(typeof body.data.averageLatency, 'number');
+  });
+
+  it('GET /api/telemetry/metrics is not treated as a sensor ID', async () => {
+    const res = await fetch(`${baseUrl}/api/telemetry/metrics`);
+
+    const body = await res.json();
+
+    assert.equal(res.status, 200);
+    assert.equal(body.success, true);
+    assert.notEqual(
+      body.message,
+      'Retrieved 0 telemetry records for sensor "metrics"'
+    );
+    assert.ok(body.data.database);
   });
 });
