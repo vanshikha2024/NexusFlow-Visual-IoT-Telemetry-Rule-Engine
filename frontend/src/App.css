@@ -18,3 +18,8 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; color
 .palette-item:active { cursor: grabbing; }
 .react-flow__edge-path { stroke: #0ea5e9; stroke-width: 2; }
 .react-flow__handle { width: 10px; height: 10px; background: #0f172a; }
+.config-panel { width: 280px; padding: 16px; background: #fff; border-left: 1px solid #e2e8f0; overflow-y: auto; }
+.config-panel h3 { margin: 0 0 2px; font-size: 16px; }
+.cfg-field { display: block; margin-top: 14px; font-size: 12px; font-weight: 600; color: #475569; }
+.cfg-field input, .cfg-field select, .cfg-field textarea { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 400; color: #0f172a; }
+.cfg-field:focus-within input, .cfg-field input:focus, .cfg-field select:focus, .cfg-field textarea:focus { outline: 2px solid #0ea5e9; border-color: transparent; }

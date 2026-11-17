@@ -1,23 +1,37 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, useNodesState, useEdgesState, useReactFlow,
 } from '@xyflow/react';
 import Sidebar from './components/Sidebar';
 import CustomNode from './components/CustomNode';
+import ConfigPanel from './components/ConfigPanel';
+import { serializeGraph } from './utils/serialize';
 
-const nodeTypes = { dataSource: CustomNode, math: CustomNode, action: CustomNode };
+const nodeTypes = {
+  turbineSensor: CustomNode,
+  temperatureSensor: CustomNode,
+  movingAverage: CustomNode,
+  threshold: CustomNode,
+  smsAlert: CustomNode,
+  webhook: CustomNode,
+};
 let idCounter = 0;
-const nextId = () => `node_${++idCounter}`;
+const nextId = () => `node-${++idCounter}`;
 
 function Canvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [workflowName, setWorkflowName] = useState('My Workflow');
+  const [selectedId, setSelectedId] = useState(null);
+  const selectedNode = nodes.find((n) => n.id === selectedId) ?? null;
   const { screenToFlowPosition } = useReactFlow();
+
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
     [setEdges]
   );
+
   const onDragOver = useCallback((e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -32,8 +46,40 @@ function Canvas() {
     setNodes((nds) => nds.concat({ id: nextId(), type: item.type, position, data: item }));
   }, [screenToFlowPosition, setNodes]);
 
+  const updateConfig = (key, value) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === selectedId
+          ? { ...n, data: { ...n.data, config: { ...n.data.config, [key]: value } } }
+          : n
+      )
+    );
+  };
+
+  const saveGraph = () => {
+    const json = serializeGraph(nodes, edges, workflowName);
+    const text = JSON.stringify(json, null, 2);
+    console.log(text);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = 'nexusflow-workflow.json';
+    a.click();
+  };
+
+  const clearGraph = () => { setNodes([]); setEdges([]); setSelectedId(null); };
+
   return (
+    <>
     <div className="canvas">
+      <div className="toolbar">
+        <input
+          value={workflowName}
+          onChange={(e) => setWorkflowName(e.target.value)}
+          placeholder="Workflow name"
+        />
+        <button onClick={saveGraph}>Save JSON</button>
+        <button className="secondary" onClick={clearGraph}>Clear</button>
+      </div>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -41,9 +87,11 @@ function Canvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        deleteKeyCode={['Backspace', 'Delete']}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onNodeClick={(_, node) => setSelectedId(node.id)}
+        onPaneClick={() => setSelectedId(null)}
+        deleteKeyCode={['Backspace', 'Delete']}
         fitView
       >
         <Background gap={20} />
@@ -51,6 +99,8 @@ function Canvas() {
         <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
+    <ConfigPanel node={selectedNode} onChange={updateConfig} />
+    </>
   );
 }
 
