@@ -15,6 +15,11 @@ A ready-to-import Postman Collection is available at [`backend/postman_collectio
 | `GET` | `/api/telemetry/metrics` | Retrieve operational telemetry metrics & active sensor counts | `200 OK` |
 | `GET` | `/api/telemetry/:sensorId` | Query telemetry history by sensor | `200 OK` |
 | `GET` | `/api/telemetry/:sensorId/latest` | Retrieve latest telemetry record for sensor | `200 OK` / `404` |
+| `POST` | `/api/workflows` | Save a new visual rule workflow graph | `201 Created` |
+| `GET` | `/api/workflows` | List all saved workflows (with optional `?status=`) | `200 OK` |
+| `GET` | `/api/workflows/:id` | Retrieve workflow graph for canvas reconstruction | `200 OK` / `404` |
+| `PUT` | `/api/workflows/:id` | Update workflow graph (auto-increments version) | `200 OK` / `404` |
+| `DELETE`| `/api/workflows/:id` | Delete workflow graph by ID | `200 OK` / `404` |
 | `GET` | `/api/health` | Service health status including telemetry stats | `200 OK` |
 
 ---
@@ -260,3 +265,95 @@ All errors adhere to the standardized API response schema:
   "errors": []
 }
 ```
+
+---
+
+## 7. Visual Workflow API (Day 6)
+
+The Workflow API manages the persistence, retrieval, and updating of visual rule engine graphs constructed in the frontend visual graph builder (`@xyflow/react`).
+
+Full specification and React Flow alignment details are documented in [`WORKFLOW_CONTRACT.md`](WORKFLOW_CONTRACT.md).
+
+### 7.1 Create Workflow (`POST /api/workflows`)
+
+#### Request:
+```bash
+curl -X POST "http://localhost:5000/api/workflows" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Turbine Overheat Alert",
+    "description": "Trigger SMS when turbine temp > 85C",
+    "status": "active",
+    "nodes": [
+      {
+        "id": "node_temp_01",
+        "type": "dataSource",
+        "label": "Turbine Sensor",
+        "position": { "x": 100, "y": 150 },
+        "config": { "sensorId": "turbine-sensor-01" }
+      },
+      {
+        "id": "node_thresh_01",
+        "type": "math",
+        "label": "Threshold",
+        "position": { "x": 380, "y": 150 },
+        "config": { "operator": ">", "threshold": 85.0 }
+      },
+      {
+        "id": "node_sms_01",
+        "type": "action",
+        "label": "SMS Alert",
+        "position": { "x": 660, "y": 150 },
+        "config": { "recipient": "+15550199" }
+      }
+    ],
+    "edges": [
+      { "id": "e1", "source": "node_temp_01", "target": "node_thresh_01" },
+      { "id": "e2", "source": "node_thresh_01", "target": "node_sms_01" }
+    ]
+  }'
+```
+
+#### Success Response (`201 Created`):
+```json
+{
+  "success": true,
+  "statusCode": 201,
+  "message": "Workflow created successfully",
+  "data": {
+    "id": "6739de1a88432a9018bcfa12",
+    "name": "Turbine Overheat Alert",
+    "status": "active",
+    "version": 1,
+    "nodes": [ ... ],
+    "edges": [ ... ],
+    "createdAt": "2026-11-17T09:15:38.120Z",
+    "updatedAt": "2026-11-17T09:15:38.120Z"
+  }
+}
+```
+
+### 7.2 Retrieve Workflow Graph (`GET /api/workflows/:id`)
+
+#### Request:
+```bash
+curl -X GET "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12"
+```
+
+### 7.3 Update Workflow (`PUT /api/workflows/:id`)
+
+#### Request:
+```bash
+curl -X PUT "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Turbine Overheat Alert (Production v2)",
+    "status": "active",
+    "nodes": [ ... ],
+    "edges": [ ... ]
+  }'
+```
+
+#### Success Response (`200 OK`):
+Auto-increments `version` to `2` and updates `updatedAt`.
+

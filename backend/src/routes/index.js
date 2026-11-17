@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import healthRoutes from './health.routes.js';
 import telemetryRoutes from './telemetry.routes.js';
+import workflowRoutes from './workflow.routes.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 
 const router = Router();
@@ -10,6 +11,9 @@ router.use('/health', healthRoutes);
 
 // Mount telemetry ingestion and query routes: /api/telemetry
 router.use('/telemetry', telemetryRoutes);
+
+// Mount visual workflow routes: /api/workflows
+router.use('/workflows', workflowRoutes);
 
 // Root API endpoint: /api
 router.get('/', (req, res) => {
@@ -26,6 +30,11 @@ router.get('/', (req, res) => {
         ingestTelemetryBulk: 'POST /api/telemetry/bulk',
         getTelemetryBySensor: 'GET /api/telemetry/:sensorId',
         getLatestTelemetry: 'GET /api/telemetry/:sensorId/latest',
+        createWorkflow: 'POST /api/workflows',
+        listWorkflows: 'GET /api/workflows',
+        getWorkflowById: 'GET /api/workflows/:id',
+        updateWorkflow: 'PUT /api/workflows/:id',
+        deleteWorkflow: 'DELETE /api/workflows/:id',
       },
     },
     'Welcome to NexusFlow API'
