@@ -1,0 +1,51 @@
+
+export const nodeLibrary = [
+  {
+    type: "dataSource",
+    label: "Temperature Sensor",
+    description: "Read temperature data",
+    category: "Data Sources",
+    color: "#0ea5e9",
+    icon: "thermometer",
+  },
+  {
+    type: "dataSource",
+    label: "Humidity Sensor",
+    description: "Read humidity data",
+    category: "Data Sources",
+    color: "#0ea5e9",
+    icon: "droplets",
+  },
+  {
+    type: "math",
+    label: "Moving Average",
+    description: "Calculate average values",
+    category: "Processing",
+    color: "#8b5cf6",
+    icon: "calculator",
+  },
+  {
+    type: "math",
+    label: "Threshold Condition",
+    description: "Check a threshold value",
+    category: "Processing",
+    color: "#8b5cf6",
+    icon: "git-branch",
+  },
+  {
+    type: "action",
+    label: "SMS Alert",
+    description: "Send an SMS notification",
+    category: "Actions",
+    color: "#ef4444",
+    icon: "message-square",
+  },
+  {
+    type: "action",
+    label: "Webhook",
+    description: "Send data to an API",
+    category: "Actions",
+    color: "#ef4444",
+    icon: "webhook",
+  },
+];
