@@ -1,0 +1,73 @@
+import { workflowService } from '../services/workflow.service.js';
+import { ApiResponse } from '../utils/apiResponse.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+
+/**
+ * Create a new visual workflow graph.
+ * POST /api/workflows
+ */
+export const createWorkflow = asyncHandler(async (req, res) => {
+  const result = await workflowService.createWorkflow(req.body);
+  return ApiResponse.success(
+    res,
+    result,
+    'Workflow created successfully',
+    201
+  );
+});
+
+/**
+ * Retrieve a workflow by its unique ID.
+ * GET /api/workflows/:id
+ */
+export const getWorkflowById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const workflow = await workflowService.getWorkflowById(id);
+  return ApiResponse.success(
+    res,
+    workflow,
+    `Workflow "${workflow.name}" retrieved successfully`
+  );
+});
+
+/**
+ * List all visual workflows with optional status filtering.
+ * GET /api/workflows
+ */
+export const listWorkflows = asyncHandler(async (req, res) => {
+  const { status, limit, skip } = req.query;
+  const result = await workflowService.listWorkflows({ status, limit, skip });
+  return ApiResponse.success(
+    res,
+    result,
+    `Retrieved ${result.count} workflows`
+  );
+});
+
+/**
+ * Update an existing workflow graph by ID.
+ * PUT /api/workflows/:id
+ */
+export const updateWorkflow = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const updated = await workflowService.updateWorkflow(id, req.body);
+  return ApiResponse.success(
+    res,
+    updated,
+    `Workflow "${updated.name}" updated successfully (version ${updated.version})`
+  );
+});
+
+/**
+ * Delete a workflow by ID.
+ * DELETE /api/workflows/:id
+ */
+export const deleteWorkflow = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const result = await workflowService.deleteWorkflow(id);
+  return ApiResponse.success(
+    res,
+    result,
+    `Workflow "${id}" deleted successfully`
+  );
+});
