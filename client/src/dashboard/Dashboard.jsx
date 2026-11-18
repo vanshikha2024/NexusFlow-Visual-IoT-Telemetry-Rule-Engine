@@ -10,6 +10,7 @@ import {
   Search,
   Activity,
   Wifi,
+  History,
 } from "lucide-react";
 
 import SensorCards from "./SensorCards";
@@ -17,10 +18,11 @@ import TemperatureChart from "./TemperatureChart";
 import HumidityChart from "./HumidityChart";
 import DeviceStatus from "./DeviceStatus";
 import AlertPanel from "../alerts/AlertPanel";
-import ExecutionStatus from "../workflow/ExecutionStatus";
+import ExecutionStatus from "./ExecutionStatus";
 import WorkflowEditor from "../workflow/WorkflowEditor";
 import TurbineMonitoring from "./TurbineMonitoring";
 import TelemetryMetrics from "./TelemetryMetrics";
+import ExecutionHistory from "./ExecutionHistory";
 
 function Dashboard() {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -31,6 +33,7 @@ function Dashboard() {
     { name: "Workflows", icon: Workflow },
     { name: "Alerts", icon: Bell },
     { name: "Settings", icon: Settings },
+    { name: "Execution History", icon: History },
   ];
 
   return (
@@ -65,7 +68,18 @@ function Dashboard() {
       </aside>
 
       <main className="main-content">
-        {activePage === "Workflows" ? (
+        {activePage === "Execution History" ? (
+          <>
+            <header className="topbar">
+              <div>
+                <h2>Execution History</h2>
+                <p>View previous workflow executions and results.</p>
+              </div>
+            </header>
+
+            <ExecutionHistory />
+          </>
+        ) : activePage === "Workflows" ? (
           <>
             <header className="topbar">
               <div>

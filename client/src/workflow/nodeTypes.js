@@ -49,3 +49,39 @@ export const nodeLibrary = [
     icon: "webhook",
   },
 ];
+
+export const CONFIG_FIELDS = {
+  "Temperature Sensor": [
+    { key: "sensorId", label: "Sensor ID", input: "text" },
+    { key: "unit", label: "Unit", input: "text" },
+  ],
+  "Humidity Sensor": [
+    { key: "sensorId", label: "Sensor ID", input: "text" },
+    { key: "unit", label: "Unit", input: "text" },
+  ],
+  "Moving Average": [
+    { key: "windowSize", label: "Window Size", input: "number" },
+  ],
+  "Threshold Condition": [
+    {
+      key: "operator",
+      label: "Operator",
+      input: "select",
+      options: [">", ">=", "<", "<=", "==", "!="],
+    },
+    { key: "threshold", label: "Threshold Value", input: "number" },
+  ],
+  "SMS Alert": [
+    { key: "phone", label: "Phone Number", input: "text" },
+    { key: "message", label: "Message", input: "textarea" },
+  ],
+  Webhook: [
+    { key: "url", label: "Webhook URL", input: "text" },
+    {
+      key: "method",
+      label: "HTTP Method",
+      input: "select",
+      options: ["POST", "PUT"],
+    },
+  ],
+};

@@ -5,6 +5,7 @@ import {
   listWorkflows,
   updateWorkflow,
   deleteWorkflow,
+  executeWorkflow,
 } from '../controllers/workflow.controller.js';
 import {
   validateCreateWorkflow,
@@ -28,5 +29,8 @@ router.put('/:id', validateWorkflowId, validateUpdateWorkflow, updateWorkflow);
 
 // DELETE /api/workflows/:id - Delete workflow by ID
 router.delete('/:id', validateWorkflowId, deleteWorkflow);
+
+// POST /api/workflows/:id/execute - Execute workflow in simulation mode
+router.post('/:id/execute', validateWorkflowId, executeWorkflow);
 
 export default router;

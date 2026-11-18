@@ -1,4 +1,5 @@
 import { workflowService } from '../services/workflow.service.js';
+import { workflowExecutionService } from '../services/workflowExecution.service.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
@@ -71,3 +72,24 @@ export const deleteWorkflow = asyncHandler(async (req, res) => {
     `Workflow "${id}" deleted successfully`
   );
 });
+
+
+
+/**
+ * Execute a saved workflow in simulation mode.
+ * POST /api/workflows/:id/execute
+ */
+export const executeWorkflow = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const workflow = await workflowService.getWorkflowById(id);
+
+  const result = await workflowExecutionService.executeWorkflow(workflow);
+
+  return ApiResponse.success(
+    res,
+    result,
+    "Workflow simulation completed successfully"
+  );
+});
+

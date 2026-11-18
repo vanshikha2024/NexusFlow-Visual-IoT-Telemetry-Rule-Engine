@@ -74,3 +74,85 @@ export async function getTelemetryMetrics() {
 
   return result.data;
 }
+// Workflow API functions
+
+export async function createWorkflow(workflow) {
+  const response = await fetch(`${API_URL}/api/workflows`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(workflow),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to create workflow");
+  }
+
+  return result.data;
+}
+
+export async function getWorkflows() {
+  const response = await fetch(`${API_URL}/api/workflows`);
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to fetch workflows");
+  }
+
+  return result.data;
+}
+
+export async function getWorkflowById(id) {
+  const response = await fetch(
+    `${API_URL}/api/workflows/${encodeURIComponent(id)}`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to fetch workflow");
+  }
+
+  return result.data;
+}
+
+export async function updateWorkflow(id, workflow) {
+  const response = await fetch(
+    `${API_URL}/api/workflows/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(workflow),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to update workflow");
+  }
+
+  return result.data;
+}
+export async function deleteWorkflow(id) {
+  const response = await fetch(
+    `${API_URL}/api/workflows/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to delete workflow");
+  }
+
+  return result.data;
+}

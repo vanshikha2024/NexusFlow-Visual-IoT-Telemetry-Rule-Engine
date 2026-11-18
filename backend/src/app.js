@@ -4,6 +4,7 @@ import { requestLogger } from './middleware/requestLogger.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/index.js';
+import { env } from './config/env.js';
 
 const app = express();
 
@@ -11,8 +12,8 @@ const app = express();
 app.use(corsMiddleware);
 
 // Request body parsers
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: env.MAX_REQUEST_SIZE }));
+app.use(express.urlencoded({ extended: true, limit: env.MAX_REQUEST_SIZE }));
 
 // Logging middleware
 app.use(requestLogger);

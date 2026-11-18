@@ -33,6 +33,36 @@ export const telemetryContract = Object.freeze({
 });
 
 /**
+ * Static cached set of reserved keys for the default contract to avoid
+ * re-allocating Set instances on every single telemetry record in hot paths.
+ */
+const contractReservedKeysCache = new WeakMap();
+
+const getReservedKeys = (contract) => {
+  if (typeof contract === 'object' && contract !== null) {
+    let keys = contractReservedKeysCache.get(contract);
+    if (!keys) {
+      keys = new Set([
+        contract.timeField,
+        contract.metaField,
+        contract.sensorIdKey,
+        'sensorId',
+        'deviceId',
+        'timestamp',
+        'time',
+        'createdAt',
+        'sensorType',
+        'location',
+        '_parsedTimestamp',
+      ]);
+      contractReservedKeysCache.set(contract, keys);
+    }
+    return keys;
+  }
+  return new Set(['timestamp', 'metadata', 'sensorId', '_parsedTimestamp']);
+};
+
+/**
  * Returns the MongoDB query filter path for sensor identification based on the contract.
  * @param {typeof telemetryContract} [contract=telemetryContract]
  * @returns {string} e.g. "metadata.sensorId"
@@ -62,7 +92,8 @@ export const normalizeTelemetry = (input, contract = telemetryContract) => {
     input[contract.metaField]?.[contract.sensorIdKey] ||
     input[contract.sensorIdKey] ||
     input.sensorId ||
-    input.deviceId;
+    input.deviceId ||
+    input.id;
 
   if (!sensorId || typeof sensorId !== 'string' || sensorId.trim() === '') {
     throw new Error(
@@ -70,27 +101,31 @@ export const normalizeTelemetry = (input, contract = telemetryContract) => {
     );
   }
 
-  // 2. Resolve Timestamp (BSON Date)
-  const rawTime =
-    input[contract.timeField] ||
-    input.timestamp ||
-    input.time ||
-    input.createdAt;
-
+  // 2. Resolve Timestamp (BSON Date) - fast-path if pre-parsed by validator
   let timestamp;
-  if (!rawTime) {
-    timestamp = new Date();
-  } else if (rawTime instanceof Date) {
-    if (isNaN(rawTime.getTime())) {
-      throw new Error(`Invalid Date provided in '${contract.timeField}'.`);
-    }
-    timestamp = rawTime;
+  if (input._parsedTimestamp instanceof Date) {
+    timestamp = input._parsedTimestamp;
   } else {
-    timestamp = new Date(rawTime);
-    if (isNaN(timestamp.getTime())) {
-      throw new Error(
-        `Unable to parse '${contract.timeField}' into a valid Date: ${rawTime}`
-      );
+    const rawTime =
+      input[contract.timeField] ||
+      input.timestamp ||
+      input.time ||
+      input.createdAt;
+
+    if (!rawTime) {
+      timestamp = new Date();
+    } else if (rawTime instanceof Date) {
+      if (isNaN(rawTime.getTime())) {
+        throw new Error(`Invalid Date provided in '${contract.timeField}'.`);
+      }
+      timestamp = rawTime;
+    } else {
+      timestamp = new Date(rawTime);
+      if (isNaN(timestamp.getTime())) {
+        throw new Error(
+          `Unable to parse '${contract.timeField}' into a valid Date: ${rawTime}`
+        );
+      }
     }
   }
 
@@ -98,32 +133,28 @@ export const normalizeTelemetry = (input, contract = telemetryContract) => {
   const existingMeta =
     typeof input[contract.metaField] === 'object' && input[contract.metaField] !== null
       ? input[contract.metaField]
-      : {};
+      : null;
 
-  const metadata = {
-    ...existingMeta,
-    [contract.sensorIdKey]: sensorId.trim(),
-    ...(input.sensorType ? { sensorType: input.sensorType } : {}),
-    ...(input.location ? { location: input.location } : {}),
-  };
+  const metadata = existingMeta
+    ? {
+        ...existingMeta,
+        [contract.sensorIdKey]: sensorId.trim(),
+        ...(input.sensorType ? { sensorType: input.sensorType } : {}),
+        ...(input.location ? { location: input.location } : {}),
+      }
+    : {
+        [contract.sensorIdKey]: sensorId.trim(),
+        ...(input.sensorType ? { sensorType: input.sensorType } : {}),
+        ...(input.location ? { location: input.location } : {}),
+      };
 
-  // 4. Extract Measurements / Payload fields (exclude timeField, metaField, sensorIdKey)
-  const reservedKeys = new Set([
-    contract.timeField,
-    contract.metaField,
-    contract.sensorIdKey,
-    'sensorId',
-    'deviceId',
-    'timestamp',
-    'time',
-    'sensorType',
-    'location',
-  ]);
-
+  // 4. Extract Measurements / Payload fields using cached reservedKeys Set
+  const reservedKeys = getReservedKeys(contract);
   const measurements = {};
-  for (const [key, val] of Object.entries(input)) {
+
+  for (const key of Object.keys(input)) {
     if (!reservedKeys.has(key)) {
-      measurements[key] = val;
+      measurements[key] = input[key];
     }
   }
 
