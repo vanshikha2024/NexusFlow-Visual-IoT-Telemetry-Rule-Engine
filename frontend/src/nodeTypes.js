@@ -33,3 +33,22 @@ export const CONFIG_FIELDS = {
     { key: 'method', label: 'Method', input: 'select', options: ['POST'] },
   ],
 };
+
+// Short text shown on the node so users can see its settings at a glance.
+export function getNodeSummary(type, config = {}) {
+  switch (type) {
+    case 'turbineSensor':
+    case 'temperatureSensor':
+      return `${config.sensorId || 'no sensor ID'}${config.unit ? ` (${config.unit})` : ''}`;
+    case 'movingAverage':
+      return `window: ${config.windowSize ?? '-'} readings`;
+    case 'threshold':
+      return `value ${config.operator ?? ''} ${config.value ?? ''}`;
+    case 'smsAlert':
+      return config.phone || 'no phone set';
+    case 'webhook':
+      return config.url || 'no URL set';
+    default:
+      return '';
+  }
+}

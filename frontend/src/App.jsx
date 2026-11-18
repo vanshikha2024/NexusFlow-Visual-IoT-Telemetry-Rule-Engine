@@ -55,7 +55,11 @@ function Canvas() {
       )
     );
   };
-
+  const deleteSelected = () => {
+    setNodes((nds) => nds.filter((n) => n.id !== selectedId));
+    setEdges((eds) => eds.filter((e) => e.source !== selectedId && e.target !== selectedId));
+    setSelectedId(null);
+  };
   const saveGraph = () => {
     const json = serializeGraph(nodes, edges, workflowName);
     const text = JSON.stringify(json, null, 2);
@@ -99,7 +103,7 @@ function Canvas() {
         <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
-    <ConfigPanel node={selectedNode} onChange={updateConfig} />
+        <ConfigPanel node={selectedNode} onChange={updateConfig} onDelete={deleteSelected} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { CONFIG_FIELDS } from '../nodeTypes';
 
-export default function ConfigPanel({ node, onChange }) {
+export default function ConfigPanel({ node, onChange, onDelete }) {
   if (!node) {
     return (
       <aside className="config-panel">
@@ -38,6 +38,8 @@ export default function ConfigPanel({ node, onChange }) {
           )}
         </label>
       ))}
+            <button className="delete-btn" onClick={onDelete}>Delete node</button>
     </aside>
   );
+
 }
