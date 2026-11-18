@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # NexusFlow – Database & Node.js Backend
 
 This backend starter is specifically for **Project 1: NexusFlow – Visual IoT Telemetry & Rule Engine** from the Infotact project document.
@@ -125,3 +126,7 @@ Open `http://localhost:5000/`.
 3. For production, protect write APIs with authentication and authorization, validate telemetry payloads, add rate limiting, and restrict who can edit or activate workflows.
 4. For high ingestion rates, batch writes and avoid returning every stored telemetry record. Tune MongoDB indexes and Time-Series granularity based on real measurement frequency and query patterns.
 5. Confirm the exact MongoDB version and deployment support before using Time-Series collections.
+=======
+# NexusFlow-Visual-IoT-Telemetry-Rule-Engine
+A factory floor manager logs into NexusFlow. Using a React-based visual drag-and-drop canvas, they connect a "Turbine Sensor" node to a "Moving Average Filter" node, and finally to an "SMS Alert" node. The Node.js backend instantly compiles this visual graph into an executable data stream. 
+>>>>>>> 42c1a6237729e59385111505a36b7c0ed2ff600b
