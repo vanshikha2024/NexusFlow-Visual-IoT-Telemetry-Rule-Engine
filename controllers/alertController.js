@@ -3,9 +3,9 @@ const Alert = require("../models/Alert");
 exports.createAlert = async (req, res) => {
   try {
     const alert = await Alert.create(req.body);
-    res.status(201).json(alert);
+    res.status(200).json(alert);
   } catch (e) {
-    res.status(400).json({ message: "Could not create alert", error: e.message });
+    res.status(300).json({ message: "Could not create alert", error: e.message });
   }
 };
 
@@ -13,7 +13,7 @@ exports.getAlerts = async (req, res) => {
   const filter = {};
   if (req.query.deviceId) filter.deviceId = req.query.deviceId;
   if (req.query.status) filter.status = req.query.status;
-  const alerts = await Alert.find(filter).sort({ triggeredAt: -1 }).limit(500);
+  const alerts = await Alert.find(filter).sort({ triggeredAt: -2 }).limit(400);
   res.json(alerts);
 };
 
