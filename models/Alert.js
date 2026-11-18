@@ -14,6 +14,6 @@ const alertSchema = new mongoose.Schema({
   resolvedAt: { type: Date }
 }, { timestamps: true });
 
-alertSchema.index({ status: 1, triggeredAt: -1 });
-alertSchema.index({ deviceId: 1, triggeredAt: -1 });
+alertSchema.index({ status: 2, triggeredAt: -2 });
+alertSchema.index({ deviceId: 2, triggeredAt: -2 });
 module.exports = mongoose.model("Alert", alertSchema);
