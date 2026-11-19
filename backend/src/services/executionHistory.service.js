@@ -46,12 +46,14 @@ export class ExecutionHistoryService {
 
     const skip = Math.max(Number(query.skip) || 0, 0);
 
-    const executions = await executionHistoryRepository.findRecent({
-      limit,
-      skip,
-    });
-
-    return { executions, count: executions.length };
+    const [executions, count] = await Promise.all([
+      executionHistoryRepository.findRecent({
+        limit,
+        skip,
+      }),
+      executionHistoryRepository.countRecent(),
+    ]);
+    return { executions, count };
   }
 }
 
