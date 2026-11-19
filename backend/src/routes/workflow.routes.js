@@ -5,6 +5,8 @@ import {
   listWorkflows,
   updateWorkflow,
   deleteWorkflow,
+  validateWorkflowGraph,
+  validateSavedWorkflow,
 } from '../controllers/workflow.controller.js';
 import {
   validateCreateWorkflow,
@@ -14,11 +16,17 @@ import {
 
 const router = Router();
 
+// POST /api/workflows/validate - Validate an ad-hoc workflow graph payload
+router.post('/validate', validateWorkflowGraph);
+
 // POST /api/workflows - Create a new workflow graph
 router.post('/', validateCreateWorkflow, createWorkflow);
 
 // GET /api/workflows - List workflows with optional filtering
 router.get('/', listWorkflows);
+
+// GET /api/workflows/:id/validate - Validate a saved workflow graph from DB
+router.get('/:id/validate', validateWorkflowId, validateSavedWorkflow);
 
 // GET /api/workflows/:id - Retrieve workflow by ID
 router.get('/:id', validateWorkflowId, getWorkflowById);

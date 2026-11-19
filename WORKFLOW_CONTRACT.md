@@ -321,3 +321,54 @@ When an invalid or broken graph is submitted (e.g., dangling edge or duplicate I
   ]
 }
 ```
+
+---
+
+## 6. Day 7: Graph Parser & Validator Specification
+
+### 6.1 Architectural Decoupling from RxJS Execution
+Graph parsing, topological ordering, and structural validation are strictly decoupled from runtime stream execution (Day 8 RxJS). The validator acts as a static compile-time analyzer that validates the AST prior to stream subscription.
+
+### 6.2 Security & No-eval Policy
+Workflow definitions and expression strings are parsed strictly as declarative configurations. Arbitrary JavaScript execution, `eval()`, `new Function()`, and VM context invocations are strictly forbidden.
+
+### 6.3 Supported Node Categories & Connection Matrix
+
+| Source Category | Target Category | Allowed? | Reason |
+| :--- | :--- | :---: | :--- |
+| `dataSource` | `math` | **YES** | Sensor telemetry streams into filter/transform |
+| `dataSource` | `action` | **YES** | Direct alert on raw telemetry emission |
+| `math` | `math` | **YES** | Multi-stage transformation chaining |
+| `math` | `action` | **YES** | Evaluated condition triggers action sink |
+| `*` | `dataSource` | **NO** | Data sources are root emitters; incoming edges forbidden |
+| `action` | `*` | **NO** | Actions are terminal sinks; outgoing edges forbidden |
+| `dataSource` | `dataSource` | **NO** | Telemetry emitters cannot pipe directly into emitters |
+| `action` | `action` | **NO** | Actions cannot trigger downstream actions in dataflow |
+
+### 6.4 Directed Acyclic Graph (DAG) & Cycle Detection
+* **Algorithm**: Depth-First Search with 3-color state tracking (Unvisited, Visiting, Visited).
+* **Cycle Path Tracing**: When a back-edge to a node in the visiting call stack is found, the exact directed cycle (e.g. `['node_a', 'node_b', 'node_a']`) is extracted and reported.
+* **Topological Sort**: Kahn's in-degree queue algorithm produces the exact linear compilation sequence for stream assembly.
+
+### 6.5 Actionable Error Codes
+
+| Error Code | Trigger Condition |
+| :--- | :--- |
+| `INVALID_JSON` | Malformed JSON string |
+| `INVALID_STRUCTURE` | Root body, `nodes`, or `edges` is not an object/array |
+| `EMPTY_GRAPH` | `nodes` array contains 0 elements |
+| `INVALID_NODE_ID` | Node ID missing or blank |
+| `DUPLICATE_NODE_ID` | More than one node shares identical ID |
+| `UNSUPPORTED_NODE_TYPE`| Node type not present in `NodeRegistry` |
+| `INVALID_NODE_CONFIG` | Required parameters missing (e.g., `sensorId`, `windowSize`, `operator`) |
+| `INVALID_EDGE_REFERENCE` | Edge source or target node ID does not exist |
+| `SELF_LOOP` | Edge connects node to itself (`source === target`) |
+| `DUPLICATE_EDGE` | Redundant edge between identical source/target (warning) |
+| `UNSUPPORTED_CONNECTION` | Connection violates Category Matrix |
+| `CYCLE_DETECTED` | Graph contains a directed cycle |
+| `MISSING_SOURCE_NODE` | Graph lacks `dataSource` category nodes |
+| `MISSING_ACTION_NODE` | Graph lacks `action` category sink nodes |
+| `DISCONNECTED_NODE` | Node has 0 in-degree and 0 out-degree in multi-node graph |
+| `UNREACHABLE_NODE` | Node cannot be reached from any data source root |
+| `DEAD_END_NODE` | Intermediate math node has no downstream consumer |
+

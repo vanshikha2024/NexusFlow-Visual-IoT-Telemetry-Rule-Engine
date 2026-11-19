@@ -269,6 +269,54 @@
           "path": ["api", "workflows", "{{workflowId}}"]
         }
       }
+    },
+    {
+      "name": "Validate Workflow Graph (POST /api/workflows/validate)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nodes\": [\n    {\n      \"id\": \"node_temp_01\",\n      \"type\": \"temperatureSensor\",\n      \"position\": { \"x\": 100, \"y\": 150 },\n      \"config\": { \"sensorId\": \"turbine-sensor-01\" }\n    },\n    {\n      \"id\": \"node_threshold_01\",\n      \"type\": \"threshold\",\n      \"position\": { \"x\": 380, \"y\": 150 },\n      \"config\": { \"operator\": \">\", \"threshold\": 85.0 }\n    },\n    {\n      \"id\": \"node_sms_01\",\n      \"type\": \"smsAlert\",\n      \"position\": { \"x\": 660, \"y\": 150 },\n      \"config\": { \"recipient\": \"+15550199\", \"message\": \"Temp critical\" }\n    }\n  ],\n  \"edges\": [\n    { \"source\": \"node_temp_01\", \"target\": \"node_threshold_01\" },\n    { \"source\": \"node_threshold_01\", \"target\": \"node_sms_01\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/workflows/validate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "workflows", "validate"]
+        }
+      }
+    },
+    {
+      "name": "Validate Saved Workflow by ID (GET /api/workflows/:id/validate)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/workflows/{{workflowId}}/validate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "workflows", "{{workflowId}}", "validate"]
+        }
+      }
+    },
+    {
+      "name": "Validate Workflow with Cycle (POST /api/workflows/validate - 400 Expected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nodes\": [\n    { \"id\": \"s1\", \"type\": \"dataSource\", \"config\": { \"sensorId\": \"s-01\" } },\n    { \"id\": \"m1\", \"type\": \"threshold\", \"config\": { \"operator\": \">\", \"threshold\": 50 } },\n    { \"id\": \"m2\", \"type\": \"threshold\", \"config\": { \"operator\": \"<\", \"threshold\": 10 } },\n    { \"id\": \"a1\", \"type\": \"smsAlert\", \"config\": { \"recipient\": \"+1555\" } }\n  ],\n  \"edges\": [\n    { \"source\": \"s1\", \"target\": \"m1\" },\n    { \"source\": \"m1\", \"target\": \"m2\" },\n    { \"source\": \"m2\", \"target\": \"m1\" },\n    { \"source\": \"m2\", \"target\": \"a1\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/workflows/validate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "workflows", "validate"]
+        }
+      }
     }
   ]
 }

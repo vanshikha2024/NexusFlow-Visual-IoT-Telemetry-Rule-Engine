@@ -1,6 +1,7 @@
 import { workflowRepository } from '../repositories/workflow.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { logger } from '../utils/logger.js';
+import { validateGraph } from '../graph/index.js';
 
 export class WorkflowService {
   /**
@@ -100,6 +101,17 @@ export class WorkflowService {
     const success = await this.repo.deleteWorkflowById(id);
     logger.info(`Deleted workflow ID: ${id}`);
     return { id, deleted: success };
+  }
+
+  /**
+   * Validates a workflow graph using the modular GraphValidator.
+   *
+   * @param {string|Object} graphData
+   * @param {Object} [options]
+   * @returns {Object} Validation result
+   */
+  validateWorkflowGraph(graphData, options) {
+    return validateGraph(graphData, options);
   }
 }
 

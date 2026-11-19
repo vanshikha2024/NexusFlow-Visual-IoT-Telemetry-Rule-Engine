@@ -4,6 +4,17 @@ import {
   validateTelemetryBulk,
   validateTelemetryRecord,
 } from './telemetry.validator.js';
+import {
+  validateCreateWorkflow,
+  validateUpdateWorkflow,
+  validateWorkflowId,
+} from './workflow.validator.js';
+import {
+  GraphParser,
+  GraphValidator,
+  parseGraph,
+  validateGraph,
+} from '../graph/index.js';
 
 /**
  * Higher-order middleware to validate incoming request data.
@@ -27,11 +38,29 @@ export const validate = (validatorFn) => {
   };
 };
 
-export { validateTelemetry, validateTelemetryBulk, validateTelemetryRecord };
+export {
+  validateTelemetry,
+  validateTelemetryBulk,
+  validateTelemetryRecord,
+  validateCreateWorkflow,
+  validateUpdateWorkflow,
+  validateWorkflowId,
+  GraphParser,
+  GraphValidator,
+  parseGraph,
+  validateGraph,
+};
 
 export default {
   validate,
   validateTelemetry,
   validateTelemetryBulk,
   validateTelemetryRecord,
+  validateCreateWorkflow,
+  validateUpdateWorkflow,
+  validateWorkflowId,
+  GraphParser,
+  GraphValidator,
+  parseGraph,
+  validateGraph,
 };

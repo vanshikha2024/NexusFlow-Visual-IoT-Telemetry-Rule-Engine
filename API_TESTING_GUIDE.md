@@ -357,3 +357,106 @@ curl -X PUT "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12" \
 #### Success Response (`200 OK`):
 Auto-increments `version` to `2` and updates `updatedAt`.
 
+---
+
+## 8. Day 7: Graph Parser & Validator (`POST /api/workflows/validate`)
+
+Validates and compiles a visual workflow graph into an execution topology AST before feeding it into runtime RxJS streams.
+
+### Checks Performed:
+1. **JSON Deserialization & Integrity**: Safely parses React Flow canvas structures (strictly zero `eval()`).
+2. **Unique Node IDs**: Validates that all node IDs are unique within the graph.
+3. **Supported Node Types**: Checks registered categories (`dataSource`, `math`, `action`) and fine-grained aliases (`temperatureSensor`, `movingAverage`, `smsAlert`, `webhook`, etc.).
+4. **Node Configuration**: Enforces required configuration attributes (e.g. `sensorId` for data sources, `operator` & `threshold` for threshold filters, `windowSize` for moving average, `recipient` for SMS, `url` for webhooks).
+5. **Connection Compatibility**: Ensures data sources cannot have incoming connections, actions cannot have outgoing connections, and prevents forbidden source-to-source or action-to-action edges.
+6. **Cycle Detection (DAG Requirement)**: Verifies the execution graph is strictly acyclic, tracing and reporting the exact path if a cycle is present (e.g., `A -> B -> A`).
+7. **Graph Completeness**: Detects missing sources, missing sinks, isolated orphan nodes, and dead-end transforms.
+8. **Topological Ordering**: Computes Kahn's topological order for streaming execution compilation.
+
+### 8.1 Validate Ad-Hoc Workflow Graph (`POST /api/workflows/validate`)
+
+#### Request:
+```bash
+curl -X POST "http://localhost:5000/api/workflows/validate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nodes": [
+      {
+        "id": "temp_sensor",
+        "type": "temperatureSensor",
+        "position": { "x": 100, "y": 150 },
+        "config": { "sensorId": "turbine-sensor-01" }
+      },
+      {
+        "id": "thresh_filter",
+        "type": "threshold",
+        "position": { "x": 380, "y": 150 },
+        "config": { "operator": ">", "threshold": 85.0 }
+      },
+      {
+        "id": "sms_alert",
+        "type": "smsAlert",
+        "position": { "x": 660, "y": 150 },
+        "config": { "recipient": "+15550199", "message": "Turbine Overheat" }
+      }
+    ],
+    "edges": [
+      { "source": "temp_sensor", "target": "thresh_filter" },
+      { "source": "thresh_filter", "target": "sms_alert" }
+    ]
+  }'
+```
+
+#### Valid Response (`200 OK`):
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Workflow graph is valid and ready for execution.",
+  "data": {
+    "isValid": true,
+    "summary": {
+      "totalNodes": 3,
+      "totalEdges": 2,
+      "dataSourcesCount": 1,
+      "actionSinksCount": 1,
+      "isAcyclic": true,
+      "topologicalOrder": ["temp_sensor", "thresh_filter", "sms_alert"],
+      "hasCycles": false,
+      "detectedCycles": [],
+      "errorCount": 0,
+      "warningCount": 0
+    },
+    "topologicalOrder": ["temp_sensor", "thresh_filter", "sms_alert"]
+  }
+}
+```
+
+#### Cycle Detected Response (`400 Bad Request`):
+```json
+{
+  "success": false,
+  "statusCode": 400,
+  "message": "Workflow graph validation failed.",
+  "errors": [
+    {
+      "code": "CYCLE_DETECTED",
+      "field": "edges",
+      "message": "Cycle detected in workflow graph: thresh_filter -> loop_math -> thresh_filter. Workflow execution requires an acyclic execution graph (DAG) for RxJS stream compilation.",
+      "details": {
+        "cycle": ["thresh_filter", "loop_math", "thresh_filter"]
+      }
+    }
+  ],
+  "warnings": []
+}
+```
+
+### 8.2 Validate Saved Workflow in Database (`GET /api/workflows/:id/validate`)
+
+#### Request:
+```bash
+curl -X GET "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12/validate"
+```
+
+
