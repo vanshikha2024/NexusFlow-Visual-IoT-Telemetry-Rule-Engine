@@ -1,6 +1,6 @@
 import { CONFIG_FIELDS } from '../nodeTypes';
 
-export default function ConfigPanel({ node, onChange, onDelete }) {
+export default function ConfigPanel({ node, issues = [], onChange, onDelete }) {
   if (!node) {
     return (
       <aside className="config-panel">
@@ -17,7 +17,11 @@ export default function ConfigPanel({ node, onChange, onDelete }) {
     <aside className="config-panel">
       <h3>{node.data.label}</h3>
       <p className="hint">{node.data.category} · {node.id}</p>
-
+           {issues.length > 0 && (
+        <ul className="issue-list">
+          {issues.map((m) => <li key={m}>{m}</li>)}
+        </ul>
+      )}
       {fields.map((f) => (
         <label key={f.key} className="cfg-field">
           <span>{f.label}</span>
