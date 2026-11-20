@@ -1,7 +1,37 @@
 import { workflowService } from '../services/workflow.service.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { validateGraph } from '../graph/index.js';
+import { validateGraph, resolveGraphDependencies } from '../graph/index.js';
+
+/**
+ * Helper to serialize Map instances in ExecutionPlan to JSON-friendly objects
+ */
+const serializePlan = (plan) => {
+  if (!plan) return null;
+  return {
+    ...plan,
+    nodesById:
+      plan.nodesById instanceof Map
+        ? Object.fromEntries(plan.nodesById)
+        : plan.nodesById,
+    adjacency:
+      plan.adjacency instanceof Map
+        ? Object.fromEntries(plan.adjacency)
+        : plan.adjacency,
+    reverseAdjacency:
+      plan.reverseAdjacency instanceof Map
+        ? Object.fromEntries(plan.reverseAdjacency)
+        : plan.reverseAdjacency,
+    inDegree:
+      plan.inDegree instanceof Map
+        ? Object.fromEntries(plan.inDegree)
+        : plan.inDegree,
+    outDegree:
+      plan.outDegree instanceof Map
+        ? Object.fromEntries(plan.outDegree)
+        : plan.outDegree,
+  };
+};
 
 /**
  * Create a new visual workflow graph.
@@ -129,6 +159,70 @@ export const validateSavedWorkflow = asyncHandler(async (req, res) => {
       topologicalOrder: result.summary?.topologicalOrder || [],
     },
     `Workflow "${workflow.name}" is valid and ready for execution.`,
+    200
+  );
+});
+
+/**
+ * Resolve execution dependencies for a submitted visual workflow graph.
+ * POST /api/workflows/resolve
+ */
+export const resolveWorkflowDependencies = asyncHandler(async (req, res) => {
+  const resolveOpts = {};
+  const strategy = req.query.strategy || req.body?.strategy;
+  if (strategy) resolveOpts.strategy = strategy;
+
+  const result = resolveGraphDependencies(req.body, resolveOpts);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      statusCode: 400,
+      message: 'Workflow dependency resolution failed.',
+      errors: result.errors,
+      warnings: result.warnings,
+    });
+  }
+
+  return ApiResponse.success(
+    res,
+    serializePlan(result.plan),
+    'Workflow dependency resolution succeeded.',
+    200
+  );
+});
+
+/**
+ * Resolve execution dependencies for a saved workflow in the database.
+ * GET /api/workflows/:id/resolve
+ */
+export const resolveSavedWorkflowDependencies = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const workflow = await workflowService.getWorkflowById(id);
+  const resolveOpts = {
+    workflowId: id,
+    workflowName: workflow.name,
+  };
+  if (req.query.strategy) {
+    resolveOpts.strategy = req.query.strategy;
+  }
+
+  const result = resolveGraphDependencies(workflow, resolveOpts);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      statusCode: 400,
+      message: `Failed to resolve dependencies for workflow "${workflow.name}".`,
+      errors: result.errors,
+      warnings: result.warnings,
+    });
+  }
+
+  return ApiResponse.success(
+    res,
+    serializePlan(result.plan),
+    `Dependencies for workflow "${workflow.name}" resolved successfully.`,
     200
   );
 });

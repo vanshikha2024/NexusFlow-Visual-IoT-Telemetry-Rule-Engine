@@ -317,6 +317,36 @@
           "path": ["api", "workflows", "validate"]
         }
       }
+    },
+    {
+      "name": "Resolve Workflow Dependencies (POST /api/workflows/resolve)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nodes\": [\n    {\n      \"id\": \"temp_01\",\n      \"type\": \"temperatureSensor\",\n      \"position\": { \"x\": 100, \"y\": 150 },\n      \"config\": { \"sensorId\": \"turbine-sensor-01\" }\n    },\n    {\n      \"id\": \"filter_01\",\n      \"type\": \"movingAverage\",\n      \"position\": { \"x\": 350, \"y\": 150 },\n      \"config\": { \"windowSize\": 5 }\n    },\n    {\n      \"id\": \"thresh_01\",\n      \"type\": \"threshold\",\n      \"position\": { \"x\": 600, \"y\": 150 },\n      \"config\": { \"operator\": \">\", \"threshold\": 85.0 }\n    },\n    {\n      \"id\": \"sms_01\",\n      \"type\": \"smsAlert\",\n      \"position\": { \"x\": 850, \"y\": 150 },\n      \"config\": { \"recipient\": \"+15550199\", \"message\": \"High Temp Alert\" }\n    }\n  ],\n  \"edges\": [\n    { \"source\": \"temp_01\", \"target\": \"filter_01\" },\n    { \"source\": \"filter_01\", \"target\": \"thresh_01\" },\n    { \"source\": \"thresh_01\", \"target\": \"sms_01\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/workflows/resolve",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "workflows", "resolve"]
+        }
+      }
+    },
+    {
+      "name": "Resolve Saved Workflow Dependencies (GET /api/workflows/:id/resolve)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/workflows/{{workflowId}}/resolve",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "workflows", "{{workflowId}}", "resolve"]
+        }
+      }
     }
   ]
 }

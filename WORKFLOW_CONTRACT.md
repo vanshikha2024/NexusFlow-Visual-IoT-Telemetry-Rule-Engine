@@ -372,3 +372,40 @@ Workflow definitions and expression strings are parsed strictly as declarative c
 | `UNREACHABLE_NODE` | Node cannot be reached from any data source root |
 | `DEAD_END_NODE` | Intermediate math node has no downstream consumer |
 
+---
+
+## 7. Day 8: Graph Dependency Resolution & Execution Handler Mapping
+
+### 7.1 Purpose & Role in Rule Engine Pipeline
+The `GraphDependencyResolver` bridges static graph validation (Day 7) and reactive stream compilation (Day 9 RxJS). It compiles the validated visual graph into a concrete `ExecutionPlan` containing active adjacency lists, topological execution order, multi-level execution stages, and backend handler bindings.
+
+### 7.2 Backend Execution Handler Mapping Table
+
+| Visual Node Type | Execution Handler ID | Category | Type | Target RxJS Operator / Pattern |
+| :--- | :--- | :---: | :---: | :--- |
+| `dataSource`, `sensor`, `source` | `telemetrySourceHandler` | `dataSource` | `source` | `telemetryStream` (Observable source) |
+| `temperatureSensor` | `temperatureSensorHandler` | `dataSource` | `source` | `telemetryStream` (Temperature metric) |
+| `humiditySensor` | `humiditySensorHandler` | `dataSource` | `source` | `telemetryStream` (Humidity metric) |
+| `pressureSensor` | `pressureSensorHandler` | `dataSource` | `source` | `telemetryStream` (Pressure metric) |
+| `turbineSensor` | `turbineSensorHandler` | `dataSource` | `source` | `telemetryStream` (RPM/Vibration metric) |
+| `threshold`, `comparator` | `thresholdFilterHandler` | `math` | `operator` | `filter(...)` operator |
+| `movingAverage`, `average` | `movingAverageHandler` | `math` | `operator` | `scan(...)` rolling buffer window |
+| `transform` | `dataTransformHandler` | `math` | `operator` | `map(...)` mathematical projection |
+| `filter` | `predicateFilterHandler` | `math` | `operator` | `filter(...)` predicate operator |
+| `expression` | `declarativeExpressionHandler` | `math` | `operator` | `map(...)` safe expression evaluator |
+| `smsAlert`, `sms` | `smsAlertHandler` | `action` | `sink` | `tap(...)` / Emergency SMS notification |
+| `webhook`, `http` | `webhookDispatchHandler` | `action` | `sink` | `tap(...)` / HTTP POST webhook dispatch |
+| `emailNotification`, `email` | `emailNotificationHandler` | `action` | `sink` | `tap(...)` / Email alert delivery |
+| `mqttPublish`, `mqtt` | `mqttPublishHandler` | `action` | `sink` | `tap(...)` / MQTT broker event publish |
+
+### 7.3 Disconnected Node Handling Strategies
+
+* **`PRUNE` (Default)**: Automatically prunes isolated nodes (`inDegree = 0 && outDegree = 0`) and unreachable subgraphs from the active execution plan. Enables drafting on canvas while running verified sub-flows.
+* **`REJECT`**: Strictly fails dependency resolution (`DISCONNECTED_NODES_REJECTED`) if any disconnected or unreachable nodes exist.
+* **`WARN`**: Prunes disconnected nodes but attaches diagnostic warnings to the plan metadata.
+
+### 7.4 Execution Stages & Stream Compilation Plan
+* **Execution Stages (`executionStages[]`)**: Groups nodes into concurrent levels. Stage 0 contains stream entrypoints (`dataSource`). Stage $k$ contains nodes whose deepest dependency is at Stage $k-1$.
+* **Dataflow Pipelines (`pipelines[]`)**: Traces each source node to all reachable terminal sinks, defining individual reactive event pathways for RxJS compilation.
+
+

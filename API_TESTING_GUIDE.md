@@ -459,4 +459,106 @@ curl -X POST "http://localhost:5000/api/workflows/validate" \
 curl -X GET "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12/validate"
 ```
 
+---
+
+## 9. Day 8: Graph Dependency Resolver (`POST /api/workflows/resolve`)
+
+Resolves node dependencies, builds active adjacency lists, groups nodes into parallel execution stages, maps node types to backend execution handler descriptors, and traces end-to-end dataflow pipelines—preparing the exact execution plan for Day 9's RxJS stream compiler.
+
+### Key Capabilities:
+* **Topological Execution Sequence**: Linearizes dependencies using Kahn's algorithm.
+* **Layered Execution Stages**: Groups nodes into concurrent execution stages (`stage 0` = sources, `stage 1` = first-line operators, etc.).
+* **Dependency Cycle Detection**: Traps cycles and outputs actionable path traces (e.g. `n1 -> n2 -> n1`).
+* **Disconnected Node Pruning**: Prunes isolated and unreachable nodes from the execution plan (or rejects via `?strategy=REJECT`).
+* **Execution Handler Mapping**: Binds each visual node to its backend handler descriptor (`telemetrySourceHandler`, `thresholdFilterHandler`, `movingAverageHandler`, `smsAlertHandler`, `webhookDispatchHandler`, etc.).
+* **Pipeline Tracing**: Discovers all active source-to-sink data streams (`pipelines[]`).
+
+### 9.1 Resolve Ad-Hoc Workflow Dependencies (`POST /api/workflows/resolve`)
+
+#### Request:
+```bash
+curl -X POST "http://localhost:5000/api/workflows/resolve" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nodes": [
+      {
+        "id": "temp_01",
+        "type": "temperatureSensor",
+        "position": { "x": 100, "y": 150 },
+        "config": { "sensorId": "turbine-sensor-01" }
+      },
+      {
+        "id": "filter_01",
+        "type": "movingAverage",
+        "position": { "x": 350, "y": 150 },
+        "config": { "windowSize": 5 }
+      },
+      {
+        "id": "thresh_01",
+        "type": "threshold",
+        "position": { "x": 600, "y": 150 },
+        "config": { "operator": ">", "threshold": 85.0 }
+      },
+      {
+        "id": "sms_01",
+        "type": "smsAlert",
+        "position": { "x": 850, "y": 150 },
+        "config": { "recipient": "+15550199", "message": "High Temp Alert" }
+      }
+    ],
+    "edges": [
+      { "source": "temp_01", "target": "filter_01" },
+      { "source": "filter_01", "target": "thresh_01" },
+      { "source": "thresh_01", "target": "sms_01" }
+    ]
+  }'
+```
+
+#### Success Response (`200 OK`):
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Workflow dependency resolution succeeded.",
+  "data": {
+    "topologicalOrder": ["temp_01", "filter_01", "thresh_01", "sms_01"],
+    "executionStages": [
+      { "stageIndex": 0, "nodeIds": ["temp_01"] },
+      { "stageIndex": 1, "nodeIds": ["filter_01"] },
+      { "stageIndex": 2, "nodeIds": ["thresh_01"] },
+      { "stageIndex": 3, "nodeIds": ["sms_01"] }
+    ],
+    "sources": [ { "id": "temp_01", "handler": { "handlerId": "temperatureSensorHandler" } } ],
+    "sinks": [ { "id": "sms_01", "handler": { "handlerId": "smsAlertHandler" } } ],
+    "pipelines": [
+      {
+        "id": "pipe_temp_01_to_sms_01_0",
+        "sourceId": "temp_01",
+        "sinkId": "sms_01",
+        "path": ["temp_01", "filter_01", "thresh_01", "sms_01"],
+        "stages": [0, 1, 2, 3]
+      }
+    ],
+    "prunedNodes": [],
+    "metadata": {
+      "totalSubmittedNodes": 4,
+      "activeNodesCount": 4,
+      "prunedNodesCount": 0,
+      "pipelineCount": 1,
+      "stageCount": 4,
+      "isAcyclic": true,
+      "strategy": "PRUNE"
+    }
+  }
+}
+```
+
+### 9.2 Resolve Saved Workflow Dependencies (`GET /api/workflows/:id/resolve`)
+
+#### Request:
+```bash
+curl -X GET "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12/resolve"
+```
+
+
 

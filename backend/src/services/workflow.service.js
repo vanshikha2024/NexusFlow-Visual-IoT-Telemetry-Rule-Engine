@@ -1,7 +1,7 @@
 import { workflowRepository } from '../repositories/workflow.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { logger } from '../utils/logger.js';
-import { validateGraph } from '../graph/index.js';
+import { validateGraph, resolveGraphDependencies } from '../graph/index.js';
 
 export class WorkflowService {
   /**
@@ -112,6 +112,17 @@ export class WorkflowService {
    */
   validateWorkflowGraph(graphData, options) {
     return validateGraph(graphData, options);
+  }
+
+  /**
+   * Resolves graph dependencies, execution stages, and handler mappings.
+   *
+   * @param {string|Object} graphData
+   * @param {Object} [options]
+   * @returns {Object} Dependency resolution result
+   */
+  resolveWorkflowDependencies(graphData, options) {
+    return resolveGraphDependencies(graphData, options);
   }
 }
 

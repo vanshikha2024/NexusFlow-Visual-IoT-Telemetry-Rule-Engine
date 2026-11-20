@@ -14,6 +14,9 @@ import {
   GraphValidator,
   parseGraph,
   validateGraph,
+  GraphDependencyResolver,
+  resolveGraphDependencies,
+  ExecutionHandlerRegistry,
 } from '../graph/index.js';
 
 /**
@@ -49,6 +52,9 @@ export {
   GraphValidator,
   parseGraph,
   validateGraph,
+  GraphDependencyResolver,
+  resolveGraphDependencies,
+  ExecutionHandlerRegistry,
 };
 
 export default {
@@ -63,4 +69,7 @@ export default {
   GraphValidator,
   parseGraph,
   validateGraph,
+  GraphDependencyResolver,
+  resolveGraphDependencies,
+  ExecutionHandlerRegistry,
 };

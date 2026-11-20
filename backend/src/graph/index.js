@@ -12,3 +12,5 @@ export * from './nodeDefinitions.js';
 export * from './errors.js';
 export * from './graphParser.js';
 export * from './graphValidator.js';
+export * from './executionHandlers.js';
+export * from './dependencyResolver.js';
