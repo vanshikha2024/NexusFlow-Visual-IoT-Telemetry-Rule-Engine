@@ -25,14 +25,13 @@ import {
 import Sidebar from "./Sidebar";
 import CustomNode from "./CustomNode";
 import ConfigPanel from "./ConfigPanel";
-import { validateWorkflow } from "./workflowValidator";
-
 import {
   createWorkflow,
   getWorkflows,
   getWorkflowById,
   updateWorkflow,
   deleteWorkflow,
+  validateWorkflowGraph,
 } from "../services/api";
 
 const nodeTypes = {
@@ -84,18 +83,32 @@ function WorkflowCanvas() {
   };
 
   const { screenToFlowPosition } = useReactFlow();
-  const handleValidateWorkflow = () => {
-    const errors = validateWorkflow(nodes, edges);
+  const handleValidateWorkflow = async () => {
+  try {
+    const validation = await validateWorkflowGraph({
+      nodes,
+      edges,
+    });
+
+    const errors = (validation.errors || []).map(
+      (item) => item.message || String(item)
+    );
 
     setValidationErrors(errors);
-    setValidationSuccess(errors.length === 0);
+    setValidationSuccess(validation.isValid);
 
-    if (errors.length === 0) {
+    if (validation.isValid) {
       setMessage("Workflow validation successful! Ready for execution.");
     } else {
       setMessage(`Workflow validation failed: ${errors.length} issue(s) found.`);
     }
-  };
+  } catch (error) {
+    console.error("Workflow validation failed:", error);
+    setValidationErrors([error.message]);
+    setValidationSuccess(false);
+    setMessage("Unable to validate workflow with the backend.");
+  }
+};
 
   const handleExecuteWorkflow = async () => {
     // A saved workflow ID is required by the backend.
@@ -104,20 +117,32 @@ function WorkflowCanvas() {
       return;
     }
 
-    // Validate before execution.
-    const errors = validateWorkflow(nodes, edges);
-
-    setValidationErrors(errors);
-    setValidationSuccess(errors.length === 0);
-
-    if (errors.length > 0) {
-      setMessage("Execution stopped. Please fix validation errors.");
-      return;
-    }
-
     try {
       setExecuting(true);
       setExecutionResult(null);
+      setMessage("Validating workflow...");
+
+      // Validate using the backend graph validator.
+      const validation = await validateWorkflowGraph({
+        nodes,
+        edges,
+      });
+
+      const errors = (validation.errors || []).map(
+        (item) => item.message || String(item)
+      );
+
+      setValidationErrors(errors);
+      setValidationSuccess(validation.isValid);
+
+      // Stop execution when validation fails.
+      if (!validation.isValid) {
+        setMessage(
+          `Execution stopped. Workflow validation failed: ${errors.length} issue(s) found.`
+        );
+        return;
+      }
+
       setMessage("Executing workflow...");
 
       const API_URL =
@@ -131,6 +156,15 @@ function WorkflowCanvas() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+        const executionErrors = (result.errors || []).map(
+          (item) => item.message || String(item)
+        );
+
+        if (executionErrors.length > 0) {
+          setValidationErrors(executionErrors);
+          setValidationSuccess(false);
+        }
+
         throw new Error(
           result.message || "Workflow execution failed."
         );

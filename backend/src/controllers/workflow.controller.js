@@ -2,6 +2,7 @@ import { workflowService } from '../services/workflow.service.js';
 import { workflowExecutionService } from '../services/workflowExecution.service.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { validateGraph } from "../graph/index.js";
 
 /**
  * Create a new visual workflow graph.
@@ -90,6 +91,25 @@ export const executeWorkflow = asyncHandler(async (req, res) => {
     res,
     result,
     "Workflow simulation completed successfully"
+  );
+});
+
+export const validateWorkflowGraph = asyncHandler(async (req, res) => {
+  const { nodes = [], edges = [] } = req.body;
+
+  const validation = validateGraph({ nodes, edges });
+
+  return ApiResponse.success(
+    res,
+    {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      summary: validation.summary,
+    },
+    validation.isValid
+      ? "Workflow validation successful"
+      : "Workflow validation failed"
   );
 });
 

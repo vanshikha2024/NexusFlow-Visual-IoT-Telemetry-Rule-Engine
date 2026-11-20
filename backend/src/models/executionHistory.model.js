@@ -46,7 +46,7 @@ const executionHistorySchema = new mongoose.Schema(
     },
     mode: {
       type: String,
-      enum: ['simulation'],
+      enum: ['simulation', 'live', 'mixed'],
       default: 'simulation',
     },
     results: {

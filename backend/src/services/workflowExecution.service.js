@@ -1,15 +1,28 @@
-
 import {
   executionHistoryRepository,
 } from "../repositories/executionHistory.repository.js";
+
+import { validateGraph } from "../graph/index.js";
+import { ApiError } from "../utils/apiError.js";
+import { telemetryService } from "./telemetry.service.js";
+import { webhookService } from "./webhook.service.js";
 
 export class WorkflowExecutionService {
   async executeWorkflow(workflow) {
     const nodes = workflow.nodes || [];
     const edges = workflow.edges || [];
 
-    const results = {};
-    const executionLog = [];
+   const results = {};
+   const executionLog = [];
+
+   let hasLiveActions = false;
+  let hasSimulatedActions = false;
+
+  const getExecutionMode = () => {
+    if (hasLiveActions && hasSimulatedActions) return "mixed";
+    if (hasLiveActions) return "live";
+    return "simulation";
+  };
 
     const workflowId = workflow._id || workflow.id;
 
@@ -18,7 +31,7 @@ export class WorkflowExecutionService {
         workflowId,
         workflowName: workflow.name,
         status,
-        mode: "simulation",
+        mode: getExecutionMode(),
         results,
         executionLog,
         error,
@@ -27,18 +40,18 @@ export class WorkflowExecutionService {
     };
 
     try {
-      if (!nodes.length) {
-        throw new Error("Cannot execute an empty workflow.");
-      }
+      // Validate the complete graph before executing any node.
+      const validation = validateGraph({ nodes, edges });
 
-      const incoming = new Set(edges.map((edge) => edge.target));
+      if (!validation.isValid) {
+        const messages = validation.errors.map(
+          (item) => item.message
+        );
 
-      const startNodes = nodes.filter(
-        (node) => !incoming.has(node.id)
-      );
-
-      if (!startNodes.length) {
-        throw new Error("Workflow has no starting node.");
+        throw ApiError.badRequest(
+          `Workflow graph validation failed: ${messages.join("; ")}`,
+          validation.errors
+        );
       }
 
       const processed = new Set();
@@ -59,22 +72,69 @@ export class WorkflowExecutionService {
         }
 
         for (const node of readyNodes) {
-          const label = node.data?.label;
-          const config = node.data?.config || {};
+          const label =
+            node.data?.label ||
+            node.label ||
+            node.type;
+
+          // Support both old top-level and newer nested configurations.
+          const config = {
+            ...(node.config || {}),
+            ...(node.data?.config || {}),
+          };
+
+          const normalizedLabel = label.trim().toLowerCase();
 
           const inputValues = edges
             .filter((edge) => edge.target === node.id)
             .map((edge) => results[edge.source]);
 
           let output;
+          let telemetryDetails = null;
 
-          switch (label) {
-            case "Temperature Sensor":
-            case "Humidity Sensor":
-              output = 65;
-              break;
+          switch (normalizedLabel) {
+            case "temperature sensor":
+            case "humidity sensor":
+            case "turbine sensor":{
+            const sensorId = config.sensorId;
 
-            case "Moving Average": {
+            if (!sensorId) {
+              throw ApiError.badRequest(
+                `${label} requires a configured sensor ID.`
+              );
+            }
+
+            const telemetry =
+              await telemetryService.getLatestTelemetry(sensorId);
+
+            if (!telemetry) {
+              throw ApiError.notFound(
+                `No telemetry records found for sensor "${sensorId}".`
+              );
+            }
+
+            if (
+              typeof telemetry.value !== "number" ||
+              !Number.isFinite(telemetry.value)
+            ) {
+              throw ApiError.badRequest(
+                `Invalid telemetry value received from sensor "${sensorId}".`
+              );
+            }
+
+            output = telemetry.value;
+
+            telemetryDetails = {
+              sensorId,
+              timestamp: telemetry.timestamp,
+              unit: telemetry.unit || null,
+              telemetryId: telemetry._id?.toString?.() || null,
+            };
+
+           break;
+          }
+
+            case "moving average": {
               const values = inputValues.flat();
               const windowSize = Number(config.windowSize);
 
@@ -98,7 +158,8 @@ export class WorkflowExecutionService {
               break;
             }
 
-            case "Threshold Condition": {
+            case "threshold":
+            case "threshold condition": {
               const value = Number(inputValues[0]);
               const threshold = Number(config.threshold);
 
@@ -133,23 +194,54 @@ export class WorkflowExecutionService {
               break;
             }
 
-            case "SMS Alert":
+            case "sms alert":
+            case "sms":
+              hasSimulatedActions = true;
               output = {
                 simulated: true,
                 message: config.message || "SMS simulation",
-                phone: config.phone || "",
+                phone: config.phone || config.recipient || "",
                 triggered: inputValues.some(Boolean),
               };
               break;
 
-            case "Webhook":
-              output = {
-                simulated: true,
-                url: config.url || "",
-                method: config.method || "POST",
-                payload: inputValues,
+            case "webhook": {
+              const triggered = inputValues.some(Boolean);
+
+              if (!triggered) {
+                output = {
+                  delivered: false,
+                  skipped: true,
+                  reason: "No upstream condition was true.",
+                };
+                break;
+              }
+
+              if (!config.url) {
+                throw ApiError.badRequest(
+                  "Webhook requires a configured URL."
+                );
+              }
+
+              hasLiveActions = true;
+
+              const payload = {
+                workflowId: workflowId.toString(),
+                workflowName: workflow.name,
+                nodeId: node.id,
+                nodeName: label,
+                triggeredAt: new Date().toISOString(),
+                inputs: inputValues,
               };
+
+              output = await webhookService.sendWebhook({
+                url: config.url,
+                method: config.method || "POST",
+                payload,
+              });
+
               break;
+            }
 
             default:
               throw new Error(
@@ -161,21 +253,21 @@ export class WorkflowExecutionService {
           processed.add(node.id);
 
           executionLog.push({
-            nodeId: node.id,
-            nodeName: label,
-            output,
-            status: "success",
-          });
+  nodeId: node.id,
+  nodeName: label,
+  output,
+  status: "success",
+  ...(telemetryDetails ? { telemetry: telemetryDetails } : {}),
+});
         }
       }
 
       const executedAt = new Date();
-
       const history = await saveHistory("completed");
 
       return {
         status: "completed",
-        mode: "simulation",
+        mode: getExecutionMode(),
         results,
         executionLog,
         executedAt: executedAt.toISOString(),
@@ -183,15 +275,20 @@ export class WorkflowExecutionService {
       };
     } catch (error) {
       const failedNode = nodes.find(
-        (node) => !executionLog.some(
-          (entry) => entry.nodeId === node.id
-        )
+        (node) =>
+          !executionLog.some(
+            (entry) => entry.nodeId === node.id
+          )
       );
 
       if (failedNode) {
         executionLog.push({
           nodeId: failedNode.id,
-          nodeName: failedNode.data?.label || "Unknown Node",
+          nodeName:
+            failedNode.data?.label ||
+            failedNode.label ||
+            failedNode.type ||
+            "Unknown Node",
           output: null,
           status: "failed",
           error: error.message,

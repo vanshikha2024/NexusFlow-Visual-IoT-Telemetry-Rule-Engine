@@ -14,6 +14,16 @@ export const env = Object.freeze({
   NODE_ENV: process.env.NODE_ENV || 'development',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/nexusflow',
+    // Webhook security and request timeout
+  WEBHOOK_ALLOWED_HOSTS: (process.env.WEBHOOK_ALLOWED_HOSTS || '')
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean),
+
+  WEBHOOK_TIMEOUT_MS: Math.min(
+    Math.max(parseInt(process.env.WEBHOOK_TIMEOUT_MS, 10) || 10000, 1000),
+    30000
+  ),
 
   // MongoDB Time-Series Telemetry Schema Contract
   DB_NAME: process.env.DB_NAME || 'nexusflow',

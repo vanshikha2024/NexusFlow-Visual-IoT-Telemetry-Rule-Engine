@@ -6,6 +6,7 @@ import {
   updateWorkflow,
   deleteWorkflow,
   executeWorkflow,
+validateWorkflowGraph,
 } from '../controllers/workflow.controller.js';
 import {
   validateCreateWorkflow,
@@ -20,6 +21,9 @@ router.post('/', validateCreateWorkflow, createWorkflow);
 
 // GET /api/workflows - List workflows with optional filtering
 router.get('/', listWorkflows);
+
+// POST /api/workflows/validate - Validate a workflow graph
+router.post('/validate', validateWorkflowGraph);
 
 // GET /api/workflows/:id - Retrieve workflow by ID
 router.get('/:id', validateWorkflowId, getWorkflowById);
