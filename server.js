@@ -7,6 +7,11 @@ const app = express();
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" }));
 app.use(express.json({ limit: "2mb" }));
 
+app.get("/", (req, res) => res.json({ project: "NexusFlow", status: "API running" }));
+app.use("/api/devices", require("./routes/deviceRoutes"));
+app.use("/api/telemetry", require("./routes/telemetryRoutes"));
+app.use("/api/workflows", require("./routes/workflowRoutes"));
+app.use("/api/alerts", require("./routes/alertRoutes"));
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -18,5 +23,5 @@ connectDB()
   .then(() => app.listen(port, () => console.log(`NexusFlow API running on port ${port}`)))
   .catch(err => {
     console.error("MongoDB connection failed:", err.message);
-    process.exit(1);
+    process.exit(2);
   });
