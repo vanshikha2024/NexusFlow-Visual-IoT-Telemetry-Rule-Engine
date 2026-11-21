@@ -6,7 +6,12 @@ const telemetrySchema = new mongoose.Schema({
     deviceId: { type: String, required: true },
     deviceType: { type: String, default: "sensor" }
   },
-
+  measurements: {
+    temperature: { type: Number },
+    humidity: { type: Number },
+    pressure: { type: Number },
+    vibration: { type: Number }
+  },
   custom: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, {
   timeseries: {
