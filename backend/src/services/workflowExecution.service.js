@@ -6,6 +6,7 @@ import { validateGraph } from "../graph/index.js";
 import { ApiError } from "../utils/apiError.js";
 import { telemetryService } from "./telemetry.service.js";
 import { webhookService } from "./webhook.service.js";
+import { telegramService } from "./telegram.service.js";
 
 export class WorkflowExecutionService {
   async executeWorkflow(workflow) {
@@ -204,6 +205,43 @@ export class WorkflowExecutionService {
                 triggered: inputValues.some(Boolean),
               };
               break;
+
+            case "telegram alert": {
+              const triggered = inputValues.some(Boolean);
+
+              if (!triggered) {
+                output = {
+                  delivered: false,
+                  skipped: true,
+                  reason: "No upstream condition was true.",
+                };
+                break;
+              }
+
+              const message = config.message?.trim();
+
+              if (!message) {
+                throw ApiError.badRequest(
+                  "Telegram Alert requires a message."
+                );
+              }
+
+              hasLiveActions = true;
+
+              const notification = [
+                `🚨 NexusFlow IoT Alert`,
+                "",
+                message,
+                "",
+                `Workflow: ${workflow.name}`,
+                `Inputs: ${JSON.stringify(inputValues)}`,
+                `Time: ${new Date().toISOString()}`,
+              ].join("\n");
+
+              output = await telegramService.sendMessage(notification);
+
+              break;
+}
 
             case "webhook": {
               const triggered = inputValues.some(Boolean);

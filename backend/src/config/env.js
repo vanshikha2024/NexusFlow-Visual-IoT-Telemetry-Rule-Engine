@@ -14,6 +14,11 @@ export const env = Object.freeze({
   NODE_ENV: process.env.NODE_ENV || 'development',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/nexusflow',
+
+    // Telegram notification configuration
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
+  TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || '',
+
     // Webhook security and request timeout
   WEBHOOK_ALLOWED_HOSTS: (process.env.WEBHOOK_ALLOWED_HOSTS || '')
     .split(',')

@@ -40,6 +40,14 @@ export const nodeLibrary = [
     color: "#ef4444",
     icon: "message-square",
   },
+{
+  type: "action",
+  label: "Telegram Alert",
+  description: "Send a real Telegram notification",
+  category: "Actions",
+  color: "#229ED9",
+  icon: "send",
+},
   {
     type: "action",
     label: "Webhook",
@@ -74,6 +82,13 @@ export const CONFIG_FIELDS = {
   "SMS Alert": [
     { key: "phone", label: "Phone Number", input: "text" },
     { key: "message", label: "Message", input: "textarea" },
+  ],
+  "Telegram Alert": [
+    {
+      key: "message",
+      label: "Telegram Message",
+      input: "textarea",
+    },
   ],
   Webhook: [
     { key: "url", label: "Webhook URL", input: "text" },

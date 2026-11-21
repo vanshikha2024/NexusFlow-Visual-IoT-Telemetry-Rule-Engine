@@ -42,7 +42,20 @@ const nodeTypes = {
 
 let idCounter = 0;
 
-const nextId = () => `node_${++idCounter}`;
+const nextId = (existingNodes = []) => {
+  const existingIds = new Set(
+    existingNodes.map((node) => node.id)
+  );
+
+  let newId;
+
+  do {
+    idCounter += 1;
+    newId = `node_${idCounter}`;
+  } while (existingIds.has(newId));
+
+  return newId;
+};
 
 function WorkflowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -212,7 +225,7 @@ function WorkflowCanvas() {
 
         setNodes((currentNodes) =>
           currentNodes.concat({
-            id: nextId(),
+            id: nextId(currentNodes),
             type: item.type,
             position,
             data: item,
