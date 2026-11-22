@@ -46,6 +46,7 @@ export function validateWorkflow(nodes, edges, name = '') {
     switch (n.type) {
       case 'turbineSensor':
       case 'temperatureSensor':
+      case 'humiditySensor':
         if (!String(c.sensorId ?? '').trim()) add(n.id, 'Sensor ID is required.');
         if (!hasOut(n.id)) add(n.id, 'Connect this sensor to a filter or threshold.');
         break;
@@ -55,12 +56,12 @@ export function validateWorkflow(nodes, edges, name = '') {
         if (!hasOut(n.id)) add(n.id, 'Needs an output connection.');
         break;
       case 'threshold':
-        if (typeof c.value !== 'number' || Number.isNaN(c.value)) add(n.id, 'Enter a numeric threshold value.');
+        if (typeof c.threshold !== 'number' || Number.isNaN(c.threshold)) add(n.id, 'Enter a numeric threshold value.');
         if (!hasIn(n.id)) add(n.id, 'Needs an input connection.');
         if (!hasOut(n.id)) add(n.id, 'Connect this to an alert or webhook.');
         break;
       case 'smsAlert':
-        if (!/^\+?[0-9]{8,15}$/.test(String(c.phone ?? '').replace(/[\s-]/g, ''))) add(n.id, 'Enter a valid phone number, e.g. +919876543210.');
+        if (!/^\+?[0-9]{8,15}$/.test(String(c.recipient ?? '').replace(/[\s-]/g, ''))) add(n.id, 'Enter a valid phone number, e.g. +919876543210.');
         if (!String(c.message ?? '').trim()) add(n.id, 'Message is required.');
         if (!hasIn(n.id)) add(n.id, 'Needs an input connection.');
         break;
