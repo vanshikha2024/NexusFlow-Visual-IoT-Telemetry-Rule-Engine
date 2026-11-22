@@ -560,5 +560,67 @@ curl -X POST "http://localhost:5000/api/workflows/resolve" \
 curl -X GET "http://localhost:5000/api/workflows/6739de1a88432a9018bcfa12/resolve"
 ```
 
+---
+
+## 10. Day 9: RxJS Logic Compiler Programmatic Guide
+
+The Day 9 Logic Compiler compiles React Flow graphs into executable RxJS pipelines and verifies sample telemetry execution in-memory.
+
+### 10.1 Running the Sample Telemetry Verification
+```javascript
+import { executeWorkflow } from './src/compiler/index.js';
+
+const workflow = {
+  name: 'Temperature Moving Average Alert Pipeline',
+  nodes: [
+    {
+      id: 'temp_src',
+      type: 'temperatureSensor',
+      config: { sensorId: 'turbine_temp_01' }
+    },
+    {
+      id: 'm_avg',
+      type: 'movingAverage',
+      config: { windowSize: 3, partialWindow: false }
+    },
+    {
+      id: 'thresh',
+      type: 'threshold',
+      config: { operator: '>', threshold: 80.0 }
+    },
+    {
+      id: 'sms_sink',
+      type: 'smsAlert',
+      config: { recipient: '+15550199', message: 'High Temp Alert' }
+    }
+  ],
+  edges: [
+    { source: 'temp_src', target: 'm_avg' },
+    { source: 'm_avg', target: 'thresh' },
+    { source: 'thresh', target: 'sms_sink' }
+  ]
+};
+
+// Execute sequence [70, 75, 78, 82, 85, 90]
+const result = executeWorkflow(workflow, {
+  sequence: [70, 75, 78, 82, 85, 90]
+});
+
+console.log('Execution Success:', result.success);
+console.log('Alerts Dispatched:', result.alerts.length); // 2 alerts
+console.log('Alert 1 Average:', result.alerts[0].movingAverage); // 81.67°C
+console.log('Alert 2 Average:', result.alerts[1].movingAverage); // 85.67°C
+```
+
+### 10.2 Running Day 9 Unit & Integration Tests
+```bash
+# Run all Day 9 compiler tests
+node --test backend/tests/compiler.handlers.test.js backend/tests/logic.compiler.test.js
+
+# Run full project test suite
+npm --prefix backend test
+```
+
+
 
 

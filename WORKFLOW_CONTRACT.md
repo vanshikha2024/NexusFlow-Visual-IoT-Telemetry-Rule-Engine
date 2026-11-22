@@ -408,4 +408,73 @@ The `GraphDependencyResolver` bridges static graph validation (Day 7) and reacti
 * **Execution Stages (`executionStages[]`)**: Groups nodes into concurrent levels. Stage 0 contains stream entrypoints (`dataSource`). Stage $k$ contains nodes whose deepest dependency is at Stage $k-1$.
 * **Dataflow Pipelines (`pipelines[]`)**: Traces each source node to all reachable terminal sinks, defining individual reactive event pathways for RxJS compilation.
 
+---
+
+## 8. Day 9: RxJS Logic Compiler Specification
+
+### 8.1 Architectural Role & Flow
+The **NexusFlow Logic Compiler** (`backend/src/compiler/logicCompiler.js`) compiles validated React Flow workflow graphs into executable RxJS Observable pipelines. It sits directly on top of the static Graph Parser, Validator, and Dependency Resolver.
+
+```
+React Flow Graph JSON
+       │
+       ▼
+1. Graph Parser (Extract & Normalize Nodes/Edges)
+       │
+       ▼
+2. Graph Validator (DAG cycle detection, type & config integrity)
+       │
+       ▼
+3. Dependency Resolver (Topological sort, Kahn's algorithm, execution stages)
+       │
+       ▼
+4. RxJS Logic Compiler (Assemble Observable Pipeline & Handlers)
+       │
+       ▼
+Executable Stream (Sources -> Sliding Windows -> Predicates -> Mock Sinks)
+```
+
+### 8.2 Execution Handlers
+1. **Data Source Handler (`createDataSourceObservable`)**:
+   - Subscribes to live sensor feeds via in-memory RxJS `Subject` in `ExecutionContext` or from a predefined sequence.
+   - Normalizes raw primitives and objects into `{ sensorId, value, timestamp, unit, ... }`.
+   - Isolates events by `sensorId`.
+
+2. **Moving Average Handler (`createMovingAverageOperator`)**:
+   - Maintains rolling FIFO sliding window buffer of size $W$ (default: `3`).
+   - `partialWindow: false` (default): Only emits when exactly $W$ samples accumulate in the sliding buffer.
+   - Emits arithmetic average: $\bar{x} = \frac{1}{W} \sum_{i=1}^{W} x_i$.
+   - Preserves window history, `originalValue`, and `movingAverage` metadata.
+
+3. **Threshold Handler (`createThresholdOperator`)**:
+   - Zero-eval declarative condition evaluation (`>`, `<`, `>=`, `<=`, `==`, `!=`).
+   - Emits passing events enriched with condition evaluation metadata.
+   - Filters out non-matching samples.
+
+4. **SMS Alert Mock Sink (`createSmsAlertSink`)**:
+   - Captures triggered alert events, formats emergency notifications, and records them into `ExecutionContext.dispatchedAlerts`.
+   - **STRICT BOUNDARY**: 100% in-memory mock sink (`isMock: true`, `status: 'DISPATCHED_MOCK'`). No external Twilio/SMS carrier APIs are invoked.
+
+### 8.3 Verified Sequence Walkthrough
+* **Input Sequence**: `[70, 75, 78, 82, 85, 90]`
+* **Moving Average Window**: `3` (`partialWindow: false`)
+* **Threshold Condition**: `> 80.0`
+
+| Step | Sample | Sliding Window Buffer | Emitted Moving Avg ($\bar{x}$) | Condition ($\bar{x} > 80$) | Action Dispatched |
+| :---: | :---: | :---: | :---: | :---: | :--- |
+| 1 | `70` | `[70]` | *None (buffer incomplete: 1 < 3)* | N/A | None |
+| 2 | `75` | `[70, 75]` | *None (buffer incomplete: 2 < 3)* | N/A | None |
+| 3 | `78` | `[70, 75, 78]` | $74.33$ | $74.33 > 80$ (**False**) | None |
+| 4 | `82` | `[75, 78, 82]` | $78.33$ | $78.33 > 80$ (**False**) | None |
+| 5 | `85` | `[78, 82, 85]` | $81.67$ | $81.67 > 80$ (**True**) | **SMS Alert #1 Dispatched** (Avg: $81.67$) |
+| 6 | `90` | `[82, 85, 90]` | $85.67$ | $85.67 > 80$ (**True**) | **SMS Alert #2 Dispatched** (Avg: $85.67$) |
+
+**Pipeline Summary**: 6 samples processed $\rightarrow$ 4 moving average calculations $\rightarrow$ exactly **2 SMS alerts** recorded.
+
+### 8.4 Runtime Safety & Boundaries
+* **Strictly Zero `eval()`**: All operators use explicit declarative functions.
+* **Stream Resilience**: Corrupted or non-numeric samples are logged to `context.recordError()` without crashing the reactive Observable pipeline.
+* **Premature WebSocket Isolation**: Live WebSockets remain isolated for subsequent phases; stream runs cleanly in-memory.
+
+
 
