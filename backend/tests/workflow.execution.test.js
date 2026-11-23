@@ -26,6 +26,8 @@ const mockTelegramMessages = [];
 
 const originalGetLatestTelemetry =
   telemetryService.getLatestTelemetry.bind(telemetryService);
+const originalGetTelemetryBySensor =
+  telemetryService.getTelemetryBySensor.bind(telemetryService);
 
 const originalSendMessage =
   telegramService.sendMessage.bind(telegramService);
@@ -40,36 +42,42 @@ const originalSendMessage =
     executionHistoryRepository.resetStore();
     telemetryService.getLatestTelemetry =
       originalGetLatestTelemetry;
+    telemetryService.getTelemetryBySensor = originalGetTelemetryBySensor;
     telegramService.sendMessage = originalSendMessage;
   });
 
- beforeEach(() => {
-  mockWorkflowStore.length = 0;
-  mockExecutionStore.length = 0;
-  mockTelegramMessages.length = 0;
+ 
+  beforeEach(() => {
+    mockWorkflowStore.length = 0;
+    mockExecutionStore.length = 0;
+    mockTelegramMessages.length = 0;
 
-  mockTelemetryValue = 65;
+    mockTelemetryValue = 65;
 
-  telemetryService.getLatestTelemetry = async (sensorId) => ({
-    _id: "mock-turbine-telemetry",
-    timestamp: new Date("2026-11-20T06:00:00.000Z"),
-    metadata: { sensorId },
-    value: mockTelemetryValue,
-    unit: "°C",
+    telemetryService.getLatestTelemetry = async (sensorId) => ({
+      _id: "mock-turbine-telemetry",
+      timestamp: new Date("2026-11-20T06:00:00.000Z"),
+      metadata: { sensorId },
+      value: mockTelemetryValue,
+      unit: "°C",
+    });
+
+    telemetryService.getTelemetryBySensor =
+      originalGetTelemetryBySensor;
+
+    telegramService.sendMessage = async (message) => {
+      mockTelegramMessages.push(message);
+
+      return {
+        delivered: true,
+        channel: "telegram",
+        chatId: "test-chat",
+        messageId: 123,
+        date: 1795161514,
+      };
+    };
   });
 
-  telegramService.sendMessage = async (message) => {
-    mockTelegramMessages.push(message);
-
-    return {
-      delivered: true,
-      channel: "telegram",
-      chatId: "test-chat",
-      messageId: 123,
-      date: 1795161514,
-    };
-  };
-});
 
   it("executes a valid sensor-to-threshold-to-SMS workflow", async () => {
     const workflow = await workflowRepository.createWorkflow({
@@ -252,4 +260,67 @@ it("skips Telegram delivery when the threshold is false", async () => {
       /validation failed|invalid|dangling/i
     );
   });
+
+  it("calculates Moving Average using the latest historical telemetry samples", async () => {
+    telemetryService.getTelemetryBySensor = async (sensorId, options) => {
+      assert.equal(sensorId, "turbine-01");
+      assert.equal(options.limit, 3);
+
+      return [
+        { value: 90, timestamp: new Date("2026-11-23T10:03:00.000Z") },
+        { value: 80, timestamp: new Date("2026-11-23T10:02:00.000Z") },
+        { value: 70, timestamp: new Date("2026-11-23T10:01:00.000Z") },
+      ];
+    };
+
+    const workflow = await workflowRepository.createWorkflow({
+      name: "Moving Average Test",
+      nodes: [
+        {
+          id: "sensor",
+          type: "dataSource",
+          label: "Turbine Sensor",
+          config: { sensorId: "turbine-01" },
+        },
+        {
+          id: "average",
+          type: "math",
+          label: "Moving Average",
+          config: { windowSize: 3 },
+        },
+        {
+          id: "threshold",
+          type: "math",
+          label: "Threshold",
+          config: { operator: ">", threshold: 75 },
+        },
+        {
+          id: "sms",
+          type: "action",
+          label: "SMS Alert",
+          config: {
+            recipient: "+15550199",
+            message: "Moving average alert",
+          },
+        },
+      ],
+      edges: [
+        { source: "sensor", target: "average" },
+        { source: "average", target: "threshold" },
+        { source: "threshold", target: "sms" },
+      ],
+    });
+
+    const response = await request(app)
+      .post(`/api/workflows/${workflow.id}/execute`)
+      .expect(200);
+
+    assert.equal(response.body.data.status, "completed");
+    assert.equal(response.body.data.results.average, 80);
+    assert.equal(response.body.data.results.threshold, true);
+    assert.equal(response.body.data.results.sms.triggered, true);
+    assert.equal(response.body.data.executionLog.length, 4);
+    assert.equal(mockExecutionStore[0].status, "completed");
+  });
+
 });

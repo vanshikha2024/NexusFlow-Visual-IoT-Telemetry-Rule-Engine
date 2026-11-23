@@ -135,8 +135,8 @@ export class WorkflowExecutionService {
            break;
           }
 
+            
             case "moving average": {
-              const values = inputValues.flat();
               const windowSize = Number(config.windowSize);
 
               if (!Number.isInteger(windowSize) || windowSize <= 0) {
@@ -145,19 +145,97 @@ export class WorkflowExecutionService {
                 );
               }
 
-              const selected = values.slice(-windowSize);
+              // Find directly connected sensor nodes.
+              const upstreamSensorNodes = edges
+                .filter((edge) => edge.target === node.id)
+                .map((edge) => nodes.find((item) => item.id === edge.source))
+                .filter((upstreamNode) => {
+                  if (!upstreamNode) return false;
+
+                  const upstreamLabel = (
+                    upstreamNode.data?.label ||
+                    upstreamNode.label ||
+                    upstreamNode.type ||
+                    ""
+                  ).trim().toLowerCase();
+
+                  return [
+                    "temperature sensor",
+                    "humidity sensor",
+                    "turbine sensor",
+                  ].includes(upstreamLabel);
+                });
+
+              let historicalValues = [];
+
+              // Retrieve historical readings from the telemetry service.
+              for (const sensorNode of upstreamSensorNodes) {
+                const sensorConfig = {
+                  ...(sensorNode.config || {}),
+                  ...(sensorNode.data?.config || {}),
+                };
+
+                const sensorId = sensorConfig.sensorId;
+
+                if (!sensorId) {
+                  throw new Error(
+                    "Moving Average source sensor requires a sensor ID."
+                  );
+                }
+
+                const records = await telemetryService.getTelemetryBySensor(
+                  sensorId,
+                  { limit: windowSize }
+                );
+
+                historicalValues.push(
+                  ...(records || [])
+                    .filter(
+                      (record) =>
+                        typeof record.value === "number" &&
+                        Number.isFinite(record.value)
+                    )
+                );
+              }
+
+              // Repository returns newest first; sort oldest to newest.
+              historicalValues.sort(
+                (a, b) =>
+                  new Date(a.timestamp).getTime() -
+                  new Date(b.timestamp).getTime()
+              );
+
+              let selected;
+
+              if (historicalValues.length > 0) {
+                selected = historicalValues
+                  .slice(-windowSize)
+                  .map((record) => record.value);
+              } else {
+                // Fallback for workflows without a directly connected sensor.
+                selected = inputValues
+                  .flat()
+                  .filter(
+                    (value) =>
+                      typeof value === "number" &&
+                      Number.isFinite(value)
+                  )
+                  .slice(-windowSize);
+              }
 
               if (!selected.length) {
                 throw new Error(
-                  "Moving Average has no input values."
+                  "Moving Average has no valid historical telemetry values."
                 );
               }
 
               output =
                 selected.reduce((sum, value) => sum + value, 0) /
                 selected.length;
+
               break;
             }
+
 
             case "threshold":
             case "threshold condition": {
@@ -206,7 +284,9 @@ export class WorkflowExecutionService {
               };
               break;
 
-            case "telegram alert": {
+
+            case "telegram alert":
+            case "telegram": {
               const triggered = inputValues.some(Boolean);
 
               if (!triggered) {
@@ -218,30 +298,15 @@ export class WorkflowExecutionService {
                 break;
               }
 
-              const message = config.message?.trim();
-
-              if (!message) {
-                throw ApiError.badRequest(
-                  "Telegram Alert requires a message."
-                );
-              }
+              const message =
+                config.message || "NexusFlow workflow alert";
 
               hasLiveActions = true;
 
-              const notification = [
-                `🚨 NexusFlow IoT Alert`,
-                "",
-                message,
-                "",
-                `Workflow: ${workflow.name}`,
-                `Inputs: ${JSON.stringify(inputValues)}`,
-                `Time: ${new Date().toISOString()}`,
-              ].join("\n");
-
-              output = await telegramService.sendMessage(notification);
+              output = await telegramService.sendMessage(message);
 
               break;
-}
+            }
 
             case "webhook": {
               const triggered = inputValues.some(Boolean);
