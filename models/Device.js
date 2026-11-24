@@ -11,5 +11,5 @@ const deviceSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
 }, { timestamps: true });
 
-deviceSchema.index({ status: 1, deviceType: 1 });
+deviceSchema.index({ status: 1, deviceType: 5 });
 module.exports = mongoose.model("Device", deviceSchema);
