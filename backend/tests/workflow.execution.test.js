@@ -22,6 +22,7 @@ describe("Workflow Execution API", () => {
 const mockExecutionStore = [];
 
 let mockTelemetryValue = 65;
+let mockTelemetryMissing = false;
 const mockTelegramMessages = [];
 
 const originalGetLatestTelemetry =
@@ -53,14 +54,21 @@ const originalSendMessage =
     mockTelegramMessages.length = 0;
 
     mockTelemetryValue = 65;
+    mockTelemetryMissing = false;
 
-    telemetryService.getLatestTelemetry = async (sensorId) => ({
-      _id: "mock-turbine-telemetry",
-      timestamp: new Date("2026-11-20T06:00:00.000Z"),
-      metadata: { sensorId },
-      value: mockTelemetryValue,
-      unit: "°C",
-    });
+    telemetryService.getLatestTelemetry = async (sensorId) => {
+      if (mockTelemetryMissing) {
+        return null;
+      }
+
+      return {
+        _id: "mock-turbine-telemetry",
+        timestamp: new Date("2026-11-20T06:00:00.000Z"),
+        metadata: { sensorId },
+        value: mockTelemetryValue,
+        unit: "°C",
+      };
+    };
 
     telemetryService.getTelemetryBySensor =
       originalGetTelemetryBySensor;
@@ -258,6 +266,72 @@ it("skips Telegram delivery when the threshold is false", async () => {
     assert.match(
       mockExecutionStore[0].error,
       /validation failed|invalid|dangling/i
+    );
+  });
+
+  it("records failed execution history when telemetry is missing", async () => {
+    mockTelemetryMissing = true;
+
+    const workflow = await workflowRepository.createWorkflow({
+      name: "Runtime Telemetry Failure Test",
+      nodes: [
+        {
+          id: "sensor",
+          type: "dataSource",
+          label: "Turbine Sensor",
+          config: { sensorId: "missing-sensor-999" },
+        },
+        {
+          id: "threshold",
+          type: "math",
+          label: "Threshold",
+          config: { operator: ">", threshold: 50 },
+        },
+        {
+          id: "sms",
+          type: "action",
+          label: "SMS Alert",
+          config: {
+            recipient: "+15550199",
+            message: "Test failure",
+          },
+        },
+      ],
+      edges: [
+        { source: "sensor", target: "threshold" },
+        { source: "threshold", target: "sms" },
+      ],
+    });
+
+    const response = await request(app)
+      .post(`/api/workflows/${workflow.id}/execute`)
+      .expect(404);
+
+    assert.equal(response.body.success, false);
+
+    assert.match(
+      response.body.message,
+      /No telemetry records found.*missing-sensor-999/i
+    );
+
+    assert.equal(mockExecutionStore.length, 1);
+
+    const history = mockExecutionStore[0];
+
+    assert.equal(history.status, "failed");
+
+    assert.match(
+      history.error,
+      /No telemetry records found.*missing-sensor-999/i
+    );
+
+    assert.equal(history.executionLog.length, 1);
+    assert.equal(history.executionLog[0].nodeId, "sensor");
+    assert.equal(history.executionLog[0].status, "failed");
+
+    assert.match(
+      history.executionLog[0].error,
+      /missing-sensor-999/
     );
   });
 
