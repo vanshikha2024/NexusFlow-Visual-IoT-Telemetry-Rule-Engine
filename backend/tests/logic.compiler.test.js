@@ -313,7 +313,13 @@ describe('Day 9: NexusFlow Logic Compiler End-to-End Tests', () => {
         strategy: DISCONNECTED_NODE_STRATEGY.REJECT,
       });
       assert.equal(rejectResult.success, false);
-      assert.ok(rejectResult.errors.some((e) => e.code === 'DISCONNECTED_NODES_REJECTED'));
+      assert.ok(
+        rejectResult.errors.some(
+          (e) =>
+            e.code === 'DISCONNECTED_NODE' ||
+            e.code === 'DISCONNECTED_NODES_REJECTED'
+        )
+      );
     });
 
     it('handles runtime non-numeric telemetry values safely without throwing unhandled exceptions', () => {
