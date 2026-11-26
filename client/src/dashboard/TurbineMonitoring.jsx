@@ -1,4 +1,3 @@
-
 import { Activity, RefreshCw, Gauge } from "lucide-react";
 import useTelemetry from "../hooks/useTelemetry";
 
@@ -8,6 +7,7 @@ function TurbineMonitoring() {
     loading,
     error,
     refreshTelemetry,
+    liveConnected,
   } = useTelemetry();
 
   return (
@@ -28,6 +28,26 @@ function TurbineMonitoring() {
         >
           <RefreshCw size={18} />
         </button>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "12px",
+            color: liveConnected ? "#16a34a" : "#d97706",
+          }}
+          role="status"
+        >
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: liveConnected ? "#16a34a" : "#d97706",
+            }}
+          />
+          {liveConnected ? "Live" : "Reconnecting"}
+        </span>
       </div>
 
       {loading && <p>Loading turbine readings...</p>}
@@ -76,3 +96,5 @@ function TurbineMonitoring() {
 }
 
 export default TurbineMonitoring;
+
+

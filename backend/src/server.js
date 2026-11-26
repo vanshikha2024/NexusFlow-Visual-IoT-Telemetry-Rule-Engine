@@ -1,4 +1,6 @@
+import { createServer } from 'node:http';
 import app from './app.js';
+import { initializeTelemetrySocket } from './services/telemetrySocket.service.js';
 import { env } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { logger } from './utils/logger.js';
@@ -8,7 +10,10 @@ let server;
 const startServer = async () => {
   try {
     // Start Express HTTP listener
-    server = app.listen(env.PORT, () => {
+    server = createServer(app);
+    initializeTelemetrySocket(server);
+
+    server.listen(env.PORT, () => {
       logger.info(
         `NexusFlow backend listening on port ${env.PORT} in ${env.NODE_ENV} mode`
       );
@@ -60,3 +65,4 @@ process.on('uncaughtException', (error) => {
 });
 
 startServer();
+

@@ -1,3 +1,4 @@
+import { broadcastTelemetry } from './telemetrySocket.service.js';
 
 import { telemetryRepository } from '../repositories/telemetry.repository.js';
 import { logger } from '../utils/logger.js';
@@ -16,6 +17,7 @@ export class TelemetryService {
     try {
       const result = await this.repo.insertTelemetry(data);
       recordSingleIngestion();
+      broadcastTelemetry(result);
 
       logger.debug(
         `Ingested telemetry for sensor "${result.metadata?.sensorId}": value=${result.value}`
@@ -32,6 +34,7 @@ export class TelemetryService {
     try {
       const result = await this.repo.insertManyTelemetry(records);
       recordBulkIngestion(result.insertedCount);
+      if (Array.isArray(result.documents)) result.documents.forEach(broadcastTelemetry);
 
       logger.info(
         `Bulk ingested ${result.insertedCount} telemetry records`
