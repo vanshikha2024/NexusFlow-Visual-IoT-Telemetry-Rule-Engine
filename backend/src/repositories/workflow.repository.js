@@ -215,6 +215,31 @@ export class WorkflowRepository {
     try {
       const now = new Date().toISOString();
 
+      const normalizedNodes =
+        updateData.nodes !== undefined
+          ? updateData.nodes.map((node) => ({
+              id: node.id.trim(),
+              type: node.type.trim(),
+              label: node.label || node.data?.label || '',
+              position: node.position || { x: 0, y: 0 },
+              data: node.data || {},
+              config: node.config || {},
+            }))
+          : undefined;
+
+      const normalizedEdges =
+        updateData.edges !== undefined
+          ? updateData.edges.map((edge, idx) => ({
+              id: edge.id || `e_${edge.source.trim()}_${edge.target.trim()}_${idx}`,
+              source: edge.source.trim(),
+              target: edge.target.trim(),
+              sourceHandle: edge.sourceHandle || null,
+              targetHandle: edge.targetHandle || null,
+              animated: Boolean(edge.animated),
+              style: edge.style || {},
+            }))
+          : undefined;
+
       if (this._mockStore) {
         const index = this._mockStore.findIndex(
           (w) => w.id === cleanId || w._id === cleanId
@@ -229,31 +254,8 @@ export class WorkflowRepository {
             ? { description: updateData.description.trim() }
             : {}),
           ...(updateData.status ? { status: updateData.status } : {}),
-          ...(updateData.nodes
-            ? {
-                nodes: updateData.nodes.map((node) => ({
-                  id: node.id.trim(),
-                  type: node.type.trim(),
-                  label: node.label || node.data?.label || '',
-                  position: node.position || { x: 0, y: 0 },
-                  data: node.data || {},
-                  config: node.config || {},
-                })),
-              }
-            : {}),
-          ...(updateData.edges
-            ? {
-                edges: updateData.edges.map((edge, idx) => ({
-                  id: edge.id || `e_${edge.source.trim()}_${edge.target.trim()}_${idx}`,
-                  source: edge.source.trim(),
-                  target: edge.target.trim(),
-                  sourceHandle: edge.sourceHandle || null,
-                  targetHandle: edge.targetHandle || null,
-                  animated: Boolean(edge.animated),
-                  style: edge.style || {},
-                })),
-              }
-            : {}),
+          ...(normalizedNodes !== undefined ? { nodes: normalizedNodes } : {}),
+          ...(normalizedEdges !== undefined ? { edges: normalizedEdges } : {}),
           ...(updateData.metadata ? { metadata: updateData.metadata } : {}),
           version: (current.version || 1) + 1,
           updatedAt: now,
@@ -274,8 +276,12 @@ export class WorkflowRepository {
         updateFields.$set.description = updateData.description.trim();
       }
       if (updateData.status) updateFields.$set.status = updateData.status;
-      if (updateData.nodes) updateFields.$set.nodes = updateData.nodes;
-      if (updateData.edges) updateFields.$set.edges = updateData.edges;
+      if (normalizedNodes !== undefined) {
+        updateFields.$set.nodes = normalizedNodes;
+      }
+      if (normalizedEdges !== undefined) {
+        updateFields.$set.edges = normalizedEdges;
+      }
       if (updateData.metadata) updateFields.$set.metadata = updateData.metadata;
 
       let filter = { _id: cleanId };

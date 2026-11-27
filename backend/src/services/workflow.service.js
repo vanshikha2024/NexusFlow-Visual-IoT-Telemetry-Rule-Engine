@@ -1,6 +1,7 @@
 import { workflowRepository } from '../repositories/workflow.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { logger } from '../utils/logger.js';
+import { validateGraph as validateWorkflowGraph } from '../validators/workflow.validator.js';
 
 export class WorkflowService {
   /**
@@ -75,6 +76,25 @@ export class WorkflowService {
     const existing = await this.repo.findWorkflowById(id);
     if (!existing) {
       throw new ApiError(404, `Cannot update non-existent workflow with ID "${id}".`);
+    }
+
+    // Validate the complete graph when nodes or edges are being updated.
+    if (updateData.nodes !== undefined || updateData.edges !== undefined) {
+      const mergedNodes =
+        updateData.nodes !== undefined ? updateData.nodes : existing.nodes;
+
+      const mergedEdges =
+        updateData.edges !== undefined ? updateData.edges : existing.edges;
+
+      const graphValidation = validateWorkflowGraph(mergedNodes, mergedEdges);
+
+      if (!graphValidation.isValid) {
+        throw new ApiError(
+          400,
+          'Workflow update validation failed.',
+          graphValidation.errors
+        );
+      }
     }
 
     const updated = await this.repo.updateWorkflowById(id, updateData);

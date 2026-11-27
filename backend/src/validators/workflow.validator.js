@@ -77,10 +77,8 @@ export const validateGraph = (nodes, edges = []) => {
         });
       } else {
         if (
-          typeof node.position.x !== 'number' ||
-          isNaN(node.position.x) ||
-          typeof node.position.y !== 'number' ||
-          isNaN(node.position.y)
+          !Number.isFinite(node.position.x) ||
+	        !Number.isFinite(node.position.y)
         ) {
           errors.push({
             field: `${prefix}.position`,
@@ -232,6 +230,9 @@ export const validateCreateWorkflow = (req, res, next) => {
       });
     }
   }
+if (typeof status === 'string' && ALLOWED_STATUSES.has(status.toLowerCase())) {
+  req.body.status = status.toLowerCase();
+}
 
   // Graph nodes & edges validation
   const graphValidation = validateGraph(nodes, edges || []);
@@ -301,6 +302,9 @@ export const validateUpdateWorkflow = (req, res, next) => {
     }
   }
 
+  if (typeof status === 'string' && ALLOWED_STATUSES.has(status.toLowerCase())) {
+    req.body.status = status.toLowerCase();
+  }
   // If nodes are provided, validate graph
   if (nodes !== undefined) {
     const graphValidation = validateGraph(nodes, edges || []);

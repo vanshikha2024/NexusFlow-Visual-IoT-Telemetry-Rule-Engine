@@ -388,6 +388,57 @@ describe('Day 6: Visual Workflow API & Graph JSON Contract Tests', () => {
     assert.match(res.body.message, /Cannot update non-existent workflow/);
   });
 
+
+  it('PUT /api/workflows/:id rejects nodes-only update that invalidates an existing edge', async () => {
+    const initial = await workflowRepository.createWorkflow({
+      name: 'Nodes Only Update Test',
+      nodes: [
+        { id: 'n1', type: 'dataSource' },
+        { id: 'n2', type: 'math' },
+      ],
+      edges: [{ source: 'n1', target: 'n2' }],
+    });
+
+    const res = await request(app)
+      .put(`/api/workflows/${initial.id}`)
+      .send({
+        nodes: [{ id: 'n1', type: 'dataSource' }],
+      })
+      .expect(400);
+
+    assert.equal(res.body.success, false);
+    assert.match(res.body.message, /Workflow update validation failed/);
+    assert.ok(
+      res.body.errors.some((error) =>
+        error.message.includes('Dangling edge')
+      )
+    );
+  });
+
+  it('PUT /api/workflows/:id rejects edges-only update referencing a missing node', async () => {
+    const initial = await workflowRepository.createWorkflow({
+      name: 'Edges Only Update Test',
+      nodes: [{ id: 'n1', type: 'dataSource' }],
+      edges: [],
+    });
+
+    const res = await request(app)
+      .put(`/api/workflows/${initial.id}`)
+      .send({
+        edges: [{ source: 'n1', target: 'missing_node' }],
+      })
+      .expect(400);
+
+    assert.equal(res.body.success, false);
+    assert.match(res.body.message, /Workflow update validation failed/);
+    assert.ok(
+      res.body.errors.some((error) =>
+        error.message.includes('Dangling edge')
+      )
+    );
+  });
+
+
   it('PUT /api/workflows/:id rejects invalid updated graph with dangling edge with 400', async () => {
     const initial = await workflowRepository.createWorkflow({
       name: 'Valid Initial',
