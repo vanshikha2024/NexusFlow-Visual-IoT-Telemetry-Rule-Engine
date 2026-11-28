@@ -74,10 +74,8 @@ export const deleteWorkflow = asyncHandler(async (req, res) => {
   );
 });
 
-
-
 /**
- * Execute a saved workflow in simulation mode.
+ * Execute a saved workflow.
  * POST /api/workflows/:id/execute
  */
 export const executeWorkflow = asyncHandler(async (req, res) => {
@@ -90,7 +88,7 @@ export const executeWorkflow = asyncHandler(async (req, res) => {
   return ApiResponse.success(
     res,
     result,
-    "Workflow simulation completed successfully"
+    "Workflow execution completed successfully"
   );
 });
 

@@ -13,17 +13,18 @@ export class WorkflowExecutionService {
     const nodes = workflow.nodes || [];
     const edges = workflow.edges || [];
 
-   const results = {};
-   const executionLog = [];
+    const results = {};
+    const executionLog = [];
 
-   let hasLiveActions = false;
-  let hasSimulatedActions = false;
+    let currentNode = null;
+    let hasLiveActions = false;
+    let hasSimulatedActions = false;
 
-  const getExecutionMode = () => {
-    if (hasLiveActions && hasSimulatedActions) return "mixed";
-    if (hasLiveActions) return "live";
-    return "simulation";
-  };
+    const getExecutionMode = () => {
+      if (hasLiveActions && hasSimulatedActions) return "mixed";
+      if (hasLiveActions) return "live";
+      return "simulation";
+    };
 
     const workflowId = workflow._id || workflow.id;
 
@@ -73,6 +74,7 @@ export class WorkflowExecutionService {
         }
 
         for (const node of readyNodes) {
+          currentNode = node;
           const label =
             node.data?.label ||
             node.label ||
@@ -356,12 +358,13 @@ export class WorkflowExecutionService {
           processed.add(node.id);
 
           executionLog.push({
-  nodeId: node.id,
-  nodeName: label,
-  output,
-  status: "success",
-  ...(telemetryDetails ? { telemetry: telemetryDetails } : {}),
-});
+            nodeId: node.id,
+            nodeName: label,
+            output,
+            status: "success",
+            ...(telemetryDetails ? { telemetry: telemetryDetails } : {}),
+          });
+          currentNode = null;
         }
       }
 
@@ -377,12 +380,7 @@ export class WorkflowExecutionService {
         historyId: history.id,
       };
     } catch (error) {
-      const failedNode = nodes.find(
-        (node) =>
-          !executionLog.some(
-            (entry) => entry.nodeId === node.id
-          )
-      );
+      const failedNode = currentNode;
 
       if (failedNode) {
         executionLog.push({

@@ -5,12 +5,11 @@ import {
   after,
   beforeEach,
 } from "node:test";
-
 import assert from "node:assert/strict";
 import request from "supertest";
 import { telemetryService } from "../src/services/telemetry.service.js";
 import { telegramService } from "../src/services/telegram.service.js";
-
+import { webhookService } from "../src/services/webhook.service.js";
 import app from "../src/app.js";
 import { workflowRepository } from "../src/repositories/workflow.repository.js";
 import {
@@ -19,19 +18,19 @@ import {
 
 describe("Workflow Execution API", () => {
   const mockWorkflowStore = [];
-const mockExecutionStore = [];
+  const mockExecutionStore = [];
 
-let mockTelemetryValue = 65;
-let mockTelemetryMissing = false;
-const mockTelegramMessages = [];
+  let mockTelemetryValue = 65;
+  let mockTelemetryMissing = false;
+  const mockTelegramMessages = [];
+  const mockWebhookCalls = [];
 
-const originalGetLatestTelemetry =
-  telemetryService.getLatestTelemetry.bind(telemetryService);
-const originalGetTelemetryBySensor =
-  telemetryService.getTelemetryBySensor.bind(telemetryService);
+  const originalSendWebhook = webhookService.sendWebhook;
 
-const originalSendMessage =
-  telegramService.sendMessage.bind(telegramService);
+  const originalGetLatestTelemetry = telemetryService.getLatestTelemetry.bind(telemetryService);
+  const originalGetTelemetryBySensor = telemetryService.getTelemetryBySensor.bind(telemetryService);
+
+  const originalSendMessage = telegramService.sendMessage.bind(telegramService);
 
   before(() => {
     workflowRepository.setStore(mockWorkflowStore);
@@ -41,10 +40,10 @@ const originalSendMessage =
   after(() => {
     workflowRepository.resetStore();
     executionHistoryRepository.resetStore();
-    telemetryService.getLatestTelemetry =
-      originalGetLatestTelemetry;
+    telemetryService.getLatestTelemetry = originalGetLatestTelemetry;
     telemetryService.getTelemetryBySensor = originalGetTelemetryBySensor;
     telegramService.sendMessage = originalSendMessage;
+    webhookService.sendWebhook = originalSendWebhook;
   });
 
  
@@ -70,8 +69,7 @@ const originalSendMessage =
       };
     };
 
-    telemetryService.getTelemetryBySensor =
-      originalGetTelemetryBySensor;
+    telemetryService.getTelemetryBySensor = originalGetTelemetryBySensor;
 
     telegramService.sendMessage = async (message) => {
       mockTelegramMessages.push(message);
@@ -84,8 +82,20 @@ const originalSendMessage =
         date: 1795161514,
       };
     };
-  });
+    mockWebhookCalls.length = 0;
 
+    webhookService.sendWebhook = async (options) => {
+      mockWebhookCalls.push(options);
+
+      return {
+        delivered: true,
+        hostname: "hooks.example.com",
+        method: options.method,
+        statusCode: 200,
+        response: { success: true },
+      };
+    };
+  });
 
   it("executes a valid sensor-to-threshold-to-SMS workflow", async () => {
     const workflow = await workflowRepository.createWorkflow({
@@ -223,6 +233,111 @@ it("skips Telegram delivery when the threshold is false", async () => {
   assert.equal(response.body.data.results.telegram.delivered, false);
   assert.equal(response.body.data.results.telegram.skipped, true);
   assert.equal(mockTelegramMessages.length, 0);
+  assert.equal(mockExecutionStore[0].status, "completed");
+});
+
+it("sends a webhook when the upstream threshold is true", async () => {
+  const workflow = await workflowRepository.createWorkflow({
+    name: "Webhook Execution Test",
+    nodes: [
+      {
+        id: "sensor",
+        type: "dataSource",
+        label: "Turbine Sensor",
+        config: { sensorId: "turbine-01" },
+      },
+      {
+        id: "threshold",
+        type: "math",
+        label: "Threshold",
+        config: { operator: ">", threshold: 50 },
+      },
+      {
+        id: "webhook",
+        type: "action",
+        label: "Webhook",
+        config: {
+          url: "https://hooks.example.com/nexusflow",
+          method: "POST",
+        },
+      },
+    ],
+    edges: [
+      { source: "sensor", target: "threshold" },
+      { source: "threshold", target: "webhook" },
+    ],
+  });
+
+  const response = await request(app)
+    .post(`/api/workflows/${workflow.id}/execute`)
+    .expect(200);
+
+  assert.equal(response.body.success, true);
+  assert.equal(response.body.data.status, "completed");
+  assert.equal(response.body.data.mode, "live");
+
+  assert.equal(response.body.data.results.webhook.delivered, true);
+  assert.equal(response.body.data.results.webhook.statusCode, 200);
+
+  assert.equal(mockWebhookCalls.length, 1);
+  assert.equal(
+    mockWebhookCalls[0].url,
+    "https://hooks.example.com/nexusflow"
+  );
+  assert.equal(mockWebhookCalls[0].method, "POST");
+
+  assert.equal(mockWebhookCalls[0].payload.nodeId, "webhook");
+  assert.deepEqual(mockWebhookCalls[0].payload.inputs, [true]);
+
+  assert.equal(mockExecutionStore.length, 1);
+  assert.equal(mockExecutionStore[0].status, "completed");
+  assert.equal(mockExecutionStore[0].mode, "live");
+});
+
+it("skips webhook delivery when the upstream threshold is false", async () => {
+  mockTelemetryValue = 40;
+
+  const workflow = await workflowRepository.createWorkflow({
+    name: "Webhook Skip Test",
+    nodes: [
+      {
+        id: "sensor",
+        type: "dataSource",
+        label: "Turbine Sensor",
+        config: { sensorId: "turbine-01" },
+      },
+      {
+        id: "threshold",
+        type: "math",
+        label: "Threshold",
+        config: { operator: ">", threshold: 50 },
+      },
+      {
+        id: "webhook",
+        type: "action",
+        label: "Webhook",
+        config: {
+          url: "https://hooks.example.com/nexusflow",
+          method: "POST",
+        },
+      },
+    ],
+    edges: [
+      { source: "sensor", target: "threshold" },
+      { source: "threshold", target: "webhook" },
+    ],
+  });
+
+  const response = await request(app)
+    .post(`/api/workflows/${workflow.id}/execute`)
+    .expect(200);
+
+  assert.equal(response.body.data.status, "completed");
+  assert.equal(response.body.data.results.threshold, false);
+  assert.equal(response.body.data.results.webhook.delivered, false);
+  assert.equal(response.body.data.results.webhook.skipped, true);
+
+  assert.equal(mockWebhookCalls.length, 0);
   assert.equal(mockExecutionStore[0].status, "completed");
 });
 
